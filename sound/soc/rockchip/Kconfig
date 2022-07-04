@@ -14,6 +14,17 @@ config SND_SOC_ROCKCHIP_AUDIO_PWM
 	  Say Y or M if you want to add support for Audio PWM driver for
 	  Rockchip Audio PWM Controller.
 
+config SND_SOC_ROCKCHIP_DLP
+	tristate
+
+config SND_SOC_ROCKCHIP_DLP_PCM
+	tristate "Rockchip Digital Loopback PCM Driver"
+	depends on SND_SOC_ROCKCHIP
+	select SND_SOC_ROCKCHIP_DLP
+	help
+	  Say Y or M if you want to add support for DLP driver for
+	  Rockchip DMA-Based Digital Loopback.
+
 config SND_SOC_ROCKCHIP_I2S
 	tristate "Rockchip I2S Device Driver"
 	depends on CLKDEV_LOOKUP && SND_SOC_ROCKCHIP
