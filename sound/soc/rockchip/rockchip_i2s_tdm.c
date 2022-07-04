@@ -28,6 +28,7 @@
 #include <sound/dmaengine_pcm.h>
 
 #include "rockchip_i2s_tdm.h"
+#include "rockchip_dlp_pcm.h"
 
 #define DRV_NAME "rockchip-i2s-tdm"
 
@@ -2528,6 +2529,29 @@ static int rockchip_i2s_tdm_rx_path_prepare(struct rk_i2s_tdm_dev *i2s_tdm,
 	return rockchip_i2s_tdm_path_prepare(i2s_tdm, np, 1);
 }
 
+static int rockchip_i2s_tdm_get_fifo_count(struct device *dev,
+					   struct snd_pcm_substream *substream)
+{
+	struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
+	int val = 0;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		regmap_read(i2s_tdm->regmap, I2S_TXFIFOLR, &val);
+	else
+		regmap_read(i2s_tdm->regmap, I2S_RXFIFOLR, &val);
+
+	val = ((val & I2S_FIFOLR_TFL3_MASK) >> I2S_FIFOLR_TFL3_SHIFT) +
+	      ((val & I2S_FIFOLR_TFL2_MASK) >> I2S_FIFOLR_TFL2_SHIFT) +
+	      ((val & I2S_FIFOLR_TFL1_MASK) >> I2S_FIFOLR_TFL1_SHIFT) +
+	      ((val & I2S_FIFOLR_TFL0_MASK) >> I2S_FIFOLR_TFL0_SHIFT);
+
+	return val;
+}
+
+static const struct snd_dlp_config dconfig = {
+	.get_fifo_count = rockchip_i2s_tdm_get_fifo_count,
+};
+
 static irqreturn_t rockchip_i2s_tdm_isr(int irq, void *devid)
 {
 	struct rk_i2s_tdm_dev *i2s_tdm = (struct rk_i2s_tdm_dev *)devid;
@@ -2891,7 +2915,11 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 		return 0;
 	}
 
-	ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
+	if (of_property_read_bool(node, "rockchip,digital-loopback"))
+		ret = devm_snd_dmaengine_dlp_register(&pdev->dev, &dconfig);
+	else
+		ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
+
 	if (ret) {
 		dev_err(&pdev->dev, "Could not register PCM\n");
 		return ret;
