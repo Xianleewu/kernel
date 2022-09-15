@@ -8,7 +8,8 @@
 	compatible = "rockchip,linux", "rockchip,rk3358", "rockchip,px30";
 
 	chosen {
-		bootargs = "earlycon=uart8250,mmio32,0xff160000 console=ttyFIQ0 rw root=PARTUUID=614e0000-0000 rootwait";
+		bootargs = "loglevel=0 lpj=80000 initcall_debug=0 initcall_nr_threads=-1 console=ttyFIQ0 skip_initramfs root=/dev/rd0 rootfstype=squashfs init=/sbin/init";
+		//bootargs = "earlycon=uart8250,mmio32,0xff160000 console=ttyFIQ0 init=/sbin/init initrd=0x04000000,0x02000000, rootwait";
 	};
 
 	fiq-debugger {
