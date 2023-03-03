@@ -2078,6 +2078,17 @@ config VIDEO_SC830AI
 	  To compile this driver as a module, choose M here: the
 	  module will be called SC830AI.
 
+config VIDEO_SC850SL
+	tristate "SmartSens SC850SL sensor support"
+	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  Support for the SmartSens SC850SL sensor.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called SC850SL.
+
 config VIDEO_SP250A
 	tristate "Superpix SP250A sensor support"
 	depends on I2C && VIDEO_V4L2 && VIDEO_V4L2_SUBDEV_API
