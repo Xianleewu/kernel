@@ -31,6 +31,11 @@
 #define CLK_PPM_MIN		(-1000)
 #define CLK_PPM_MAX		(1000)
 
+#define DEFAULT_MCLK_FS		256
+#define DEFAULT_FS		48000
+
+#define QUIRK_ALWAYS_ON		BIT(0)
+
 struct rk_i2s_pins {
 	u32 reg_offset;
 	u32 shift;
@@ -69,6 +74,17 @@ struct rk_i2s_dev {
 	int clk_ppm;
 	bool mclk_calibrate;
 
+	unsigned int quirks;
+};
+
+static struct i2s_of_quirks {
+	char *quirk;
+	int id;
+} of_quirks[] = {
+	{
+		.quirk = "rockchip,always-on",
+		.id = QUIRK_ALWAYS_ON,
+	},
 };
 
 static int i2s_runtime_suspend(struct device *dev)
@@ -182,7 +198,7 @@ static void rockchip_snd_txctrl(struct rk_i2s_dev *i2s, int on)
 		regmap_update_bits(i2s->regmap, I2S_DMACR,
 				   I2S_DMACR_TDE_ENABLE, I2S_DMACR_TDE_DISABLE);
 
-		if (!i2s->rx_start) {
+		if (!i2s->rx_start && !(i2s->quirks & QUIRK_ALWAYS_ON)) {
 			regmap_update_bits(i2s->regmap, I2S_XFER,
 					   I2S_XFER_TXS_START |
 					   I2S_XFER_RXS_START,
@@ -214,7 +230,7 @@ static void rockchip_snd_rxctrl(struct rk_i2s_dev *i2s, int on)
 		regmap_update_bits(i2s->regmap, I2S_DMACR,
 				   I2S_DMACR_RDE_ENABLE, I2S_DMACR_RDE_DISABLE);
 
-		if (!i2s->tx_start) {
+		if (!i2s->tx_start && !(i2s->quirks & QUIRK_ALWAYS_ON)) {
 			regmap_update_bits(i2s->regmap, I2S_XFER,
 					   I2S_XFER_TXS_START |
 					   I2S_XFER_RXS_START,
@@ -773,6 +789,38 @@ static const struct of_device_id rockchip_i2s_match[] = {
 	{},
 };
 
+static int rockchip_i2s_keep_clk_always_on(struct rk_i2s_dev *i2s)
+{
+	unsigned int mclk_rate = DEFAULT_FS * DEFAULT_MCLK_FS;
+	unsigned int bclk_rate = i2s->bclk_fs * DEFAULT_FS;
+	unsigned int div_lrck = i2s->bclk_fs;
+	unsigned int div_bclk;
+
+	div_bclk = DIV_ROUND_CLOSEST(mclk_rate, bclk_rate);
+
+	/* assign generic freq */
+	clk_set_rate(i2s->mclk, mclk_rate);
+
+	regmap_update_bits(i2s->regmap, I2S_CKR,
+			   I2S_CKR_MDIV_MASK,
+			   I2S_CKR_MDIV(div_bclk));
+	regmap_update_bits(i2s->regmap, I2S_CKR,
+			   I2S_CKR_TSD_MASK |
+			   I2S_CKR_RSD_MASK,
+			   I2S_CKR_TSD(div_lrck) |
+			   I2S_CKR_RSD(div_lrck));
+	regmap_update_bits(i2s->regmap, I2S_XFER,
+			   I2S_XFER_TXS_START | I2S_XFER_RXS_START,
+			   I2S_XFER_TXS_START | I2S_XFER_RXS_START);
+
+	pm_runtime_forbid(i2s->dev);
+
+	dev_info(i2s->dev, "CLK-ALWAYS-ON: mclk: %d, bclk: %d, fsync: %d\n",
+		 mclk_rate, bclk_rate, DEFAULT_FS);
+
+	return 0;
+}
+
 static int rockchip_i2s_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -781,8 +829,7 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
 	struct snd_soc_dai_driver *soc_dai;
 	struct resource *res;
 	void __iomem *regs;
-	int ret;
-	int val;
+	int ret, val, i;
 
 	i2s = devm_kzalloc(&pdev->dev, sizeof(*i2s), GFP_KERNEL);
 	if (!i2s)
@@ -799,6 +846,10 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
 
 		i2s->pins = of_id->data;
 	}
+
+	for (i = 0; i < ARRAY_SIZE(of_quirks); i++)
+		if (device_property_read_bool(i2s->dev, of_quirks[i].quirk))
+			i2s->quirks |= of_quirks[i].id;
 
 	i2s->reset_m = devm_reset_control_get(&pdev->dev, "reset-m");
 	i2s->reset_h = devm_reset_control_get(&pdev->dev, "reset-h");
@@ -897,6 +948,17 @@ static int rockchip_i2s_probe(struct platform_device *pdev)
 
 	regmap_update_bits(i2s->regmap, I2S_CKR,
 			   I2S_CKR_TRCM_MASK, i2s->clk_trcm);
+
+	/*
+	 * CLK_ALWAYS_ON should be placed after all registers write done,
+	 * because this situation will enable XFER bit which will make
+	 * some registers(depend on XFER) write failed.
+	 */
+	if (i2s->quirks & QUIRK_ALWAYS_ON) {
+		ret = rockchip_i2s_keep_clk_always_on(i2s);
+		if (ret)
+			goto err_clk;
+	}
 
 	/*
 	 * MUST: after pm_runtime_enable step, any register R/W
