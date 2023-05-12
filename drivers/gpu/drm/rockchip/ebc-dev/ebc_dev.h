@@ -65,6 +65,7 @@
 #define EBC_DISABLE_RESUME_COUNT	(0x700f)
 #define EBC_GET_BUF_FORMAT		(0x7010)
 #define EBC_DROP_PREV_BUFFER		(0x7011)
+#define EBC_GET_STATUS				(0x7012)
 
 /*
  * IMPORTANT: Those values is corresponding to android hardware program,
