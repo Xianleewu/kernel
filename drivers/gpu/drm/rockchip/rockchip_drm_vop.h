@@ -807,6 +807,10 @@ struct vop2_video_port_regs {
 	struct vop_reg csc_offset0;
 	struct vop_reg csc_offset1;
 	struct vop_reg csc_offset2;
+
+	/* color bar */
+	struct vop_reg color_bar_en;
+	struct vop_reg color_bar_mode;
 };
 
 struct vop2_wb_regs {

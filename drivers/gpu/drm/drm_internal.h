@@ -130,6 +130,7 @@ void drm_debugfs_crtc_remove(struct drm_crtc *crtc);
 int drm_debugfs_crtc_crc_add(struct drm_crtc *crtc);
 #if defined(CONFIG_ROCKCHIP_DRM_DEBUG)
 int drm_debugfs_vop_add(struct drm_crtc *crtc, struct dentry *root);
+int drm_debugfs_vop_color_bar_add(struct drm_crtc *crtc, struct dentry *root);
 int vop_plane_dump(struct vop_dump_info *dump_info, int frame_count);
 #endif
 #else
@@ -167,6 +168,11 @@ static inline int drm_debugfs_crtc_crc_add(struct drm_crtc *crtc)
 
 #if defined(CONFIG_ROCKCHIP_DRM_DEBUG)
 static inline int drm_debugfs_vop_add(struct drm_crtc *crtc, struct dentry *root)
+{
+	return 0;
+}
+
+static inline int drm_debugfs_vop_color_bar_add(struct drm_crtc *crtc, struct dentry *root)
 {
 	return 0;
 }
