@@ -1179,6 +1179,9 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 	default:
 		rs->cs_inactive = false;
 	}
+	if (device_property_read_bool(&pdev->dev, "rockchip,cs-inactive-disable"))
+		rs->cs_inactive = false;
+
 	pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (!IS_ERR(pinctrl)) {
 		rs->high_speed_state = pinctrl_lookup_state(pinctrl, "high_speed");
@@ -1210,7 +1213,8 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 			dev_info(&pdev->dev, "register misc device %s\n", misc_name);
 	}
 
-	dev_info(rs->dev, "probed, poll=%d, rsd=%d\n", rs->poll, rs->rsd);
+	dev_info(rs->dev, "probed, poll=%d, rsd=%d, cs-inactive=%d\n",
+		 rs->poll, rs->rsd, rs->cs_inactive);
 
 	return 0;
 
