@@ -46,6 +46,7 @@ Optional Properties:
 		pinctrl/pinctrl-bindings.txt.
 
 - pinctrl-names: high_speed for speed is higher than 24MHz
+- rockchip,autosuspend-delay-ms: Set pm runtime autosuspend value in milliseconds.
 
 Example:
 
