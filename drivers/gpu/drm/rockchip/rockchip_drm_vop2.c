@@ -5187,6 +5187,30 @@ static void vop3_setup_pipe_dly(struct vop2_video_port *vp, const struct vop2_zp
 	}
 }
 
+static void vop2_setup_dual_channel_if(struct drm_crtc *crtc)
+{
+	struct vop2_video_port *vp = to_vop2_video_port(crtc);
+	struct rockchip_crtc_state *vcstate = to_rockchip_crtc_state(crtc->state);
+	struct vop2 *vop2 = vp->vop2;
+
+	if (vcstate->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_ODD_EVEN_MODE) {
+		VOP_CTRL_SET(vop2, lvds_dual_en, 1);
+		VOP_CTRL_SET(vop2, lvds_dual_mode, 0);
+		if (vcstate->output_flags & ROCKCHIP_OUTPUT_DATA_SWAP)
+			VOP_CTRL_SET(vop2, lvds_dual_channel_swap, 1);
+		return;
+	}
+
+	VOP_MODULE_SET(vop2, vp, dual_channel_en, 1);
+	if (vcstate->output_flags & ROCKCHIP_OUTPUT_DATA_SWAP)
+		VOP_MODULE_SET(vop2, vp, dual_channel_swap, 1);
+
+	if (vcstate->output_if & VOP_OUTPUT_IF_LVDS1) {
+		VOP_CTRL_SET(vop2, lvds_dual_en, 1);
+		VOP_CTRL_SET(vop2, lvds_dual_mode, 1);
+	}
+}
+
 static void vop2_crtc_atomic_enable(struct drm_crtc *crtc, struct drm_crtc_state *old_state)
 {
 	struct vop2_video_port *vp = to_vop2_video_port(crtc);
@@ -5266,15 +5290,6 @@ static void vop2_crtc_atomic_enable(struct drm_crtc *crtc, struct drm_crtc_state
 		VOP_CTRL_SET(vop2, lvds_dclk_pol, dclk_inv);
 	}
 
-	if (vcstate->output_flags & (ROCKCHIP_OUTPUT_DUAL_CHANNEL_ODD_EVEN_MODE |
-	    ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE)) {
-		VOP_CTRL_SET(vop2, lvds_dual_en, 1);
-		if (vcstate->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE)
-			VOP_CTRL_SET(vop2, lvds_dual_mode, 1);
-		if (vcstate->output_flags & ROCKCHIP_OUTPUT_DATA_SWAP)
-			VOP_CTRL_SET(vop2, lvds_dual_channel_swap, 1);
-	}
-
 	if (vcstate->output_if & VOP_OUTPUT_IF_MIPI0) {
 		VOP_CTRL_SET(vop2, mipi0_en, 1);
 		VOP_CTRL_SET(vop2, mipi0_mux, vp_data->id);
@@ -5297,11 +5312,9 @@ static void vop2_crtc_atomic_enable(struct drm_crtc *crtc, struct drm_crtc_state
 		}
 	}
 
-	if (vcstate->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE) {
-		VOP_MODULE_SET(vop2, vp, mipi_dual_en, 1);
-		if (vcstate->output_flags & ROCKCHIP_OUTPUT_DATA_SWAP)
-			VOP_MODULE_SET(vop2, vp, mipi_dual_channel_swap, 1);
-	}
+	if (vcstate->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_LEFT_RIGHT_MODE ||
+	    vcstate->output_flags & ROCKCHIP_OUTPUT_DUAL_CHANNEL_ODD_EVEN_MODE)
+		vop2_setup_dual_channel_if(crtc);
 
 	if (vcstate->output_if & VOP_OUTPUT_IF_eDP0) {
 		VOP_CTRL_SET(vop2, edp0_en, 1);

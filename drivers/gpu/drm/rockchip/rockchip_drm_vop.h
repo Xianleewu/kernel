@@ -719,8 +719,8 @@ struct vop2_video_port_regs {
 
 	struct vop_reg core_dclk_div;
 	struct vop_reg p2i_en;
-	struct vop_reg mipi_dual_en;
-	struct vop_reg mipi_dual_channel_swap;
+	struct vop_reg dual_channel_en;
+	struct vop_reg dual_channel_swap;
 	struct vop_reg dsp_lut_en;
 
 	struct vop_reg dclk_div2;
