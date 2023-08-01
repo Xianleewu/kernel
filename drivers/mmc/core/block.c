@@ -456,7 +456,7 @@ static inline bool mmc_blk_in_tran_state(u32 status)
 static int card_busy_detect(struct mmc_card *card, unsigned int timeout_ms,
 			    u32 *resp_errs)
 {
-	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
+	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms > 2000 ? 2000 : timeout_ms);
 	int err = 0;
 	u32 status;
 
@@ -1829,8 +1829,15 @@ static void mmc_blk_mq_rw_recovery(struct mmc_queue *mq, struct request *req)
 	 * bytes transferred to zero in that case.
 	 */
 	err = __mmc_send_status(card, &status, 0);
-	if (err || mmc_blk_status_error(req, status))
+	if (err || mmc_blk_status_error(req, status)) {
 		brq->data.bytes_xfered = 0;
+		if (mmc_card_sd(card)) {
+			mmc_blk_reset_success(mq->blkdata, type);
+			mmc_blk_reset(md, card->host, type);
+			if (mqrq->retries + 1 < MMC_MAX_RETRIES)
+				return;
+		}
+	}
 
 	mmc_retune_release(card->host);
 
