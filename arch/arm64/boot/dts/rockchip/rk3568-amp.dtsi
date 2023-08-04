@@ -18,6 +18,7 @@
 			amp-cpu3 {
 				id = <0x0 0x300>;
 				entry = <0x0 0x2800000>;
+				boot-on = <0>;
 				mode = <0>;
 			};
 		};
