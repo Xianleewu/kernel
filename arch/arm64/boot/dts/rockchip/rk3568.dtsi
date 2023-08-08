@@ -1500,6 +1500,7 @@
 		rockchip,srv = <&mpp_srv>;
 		rockchip,taskqueue-node = <1>;
 		rockchip,resetgroup-node = <1>;
+		rockchip,skip-pmu-idle-request;
 		power-domains = <&power RK3568_PD_RGA>;
 		status = "disabled";
 	};
@@ -1529,7 +1530,8 @@
 		iommus = <&vepu_mmu>;
 		rockchip,srv = <&mpp_srv>;
 		rockchip,taskqueue-node = <2>;
-		rockchip,resetgroup-node = <2>;
+		rockchip,resetgroup-node = <1>;
+		rockchip,skip-pmu-idle-request;
 		power-domains = <&power RK3568_PD_RGA>;
 		status = "disabled";
 	};
@@ -1559,7 +1561,8 @@
 		power-domains = <&power RK3568_PD_RGA>;
 		rockchip,srv = <&mpp_srv>;
 		rockchip,taskqueue-node = <5>;
-		rockchip,resetgroup-node = <5>;
+		rockchip,resetgroup-node = <1>;
+		rockchip,skip-pmu-idle-request;
 		iommus = <&iep_mmu>;
 		status = "disabled";
 	};
