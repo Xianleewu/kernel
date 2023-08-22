@@ -2627,20 +2627,20 @@ static int dwc3_gadget_init_endpoint(struct dwc3 *dwc, u8 epnum)
 	bool				direction = epnum & 1;
 	int				ret;
 	u8				num = epnum >> 1;
-	u8				num_in_eps, num_out_eps;
+	u8				num_in_eps, num_out_eps, min_eps;
 
 	num_in_eps = DWC3_NUM_IN_EPS(&dwc->hwparams);
 	num_out_eps = dwc->num_eps - num_in_eps;
+	min_eps = min_t(u8, num_in_eps, num_out_eps);
 
 	dep = kzalloc(sizeof(*dep), GFP_KERNEL);
 	if (!dep)
 		return -ENOMEM;
 
 	/* reconfig direction and num if num_out_eps != num_in_eps */
-	if ((!direction && ((epnum >> 1) + 1) > num_out_eps) ||
-	    (direction && ((epnum >> 1) + 1) > num_in_eps)) {
-		direction = !direction;
-		num = num + (epnum & 1);
+	if (num + 1 > min_eps && num_in_eps != num_out_eps) {
+		num = epnum - min_eps;
+		direction = num + 1 > num_out_eps ? 1 : 0;
 	}
 
 	dep->dwc = dwc;
