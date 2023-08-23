@@ -49,6 +49,9 @@
 #define RKISP_CMD_SET_CSI_MEMORY_MODE \
 	_IOW('V', BASE_VIDIOC_PRIVATE + 101, int)
 
+#define RKISP_CMD_SET_IQTOOL_CONN_ID \
+	_IOW('V', BASE_VIDIOC_PRIVATE + 102, int)
+
 /*************************************************************/
 
 #define ISP2X_ID_DPCC			(0)

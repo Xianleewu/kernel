@@ -930,6 +930,30 @@ static int rkisp_set_fmt(struct rkisp_stream *stream,
 				      config->min_rsz_width, max_rsz.width);
 		pixm->height = clamp_t(u32, pixm->height,
 				       config->min_rsz_height, max_rsz.height);
+	} else if (stream->id == RKISP_STREAM_VIR) {
+		struct rkisp_stream *t;
+
+		other_stream = NULL;
+		if (stream->conn_id != -1) {
+			t = &dev->cap_dev.stream[stream->conn_id];
+			*pixm = t->out_fmt;
+		} else {
+			for (i = RKISP_STREAM_MP; i < RKISP_STREAM_VIR; i++) {
+				t = &dev->cap_dev.stream[i];
+				if (t->out_isp_fmt.fmt_type != FMT_YUV || !t->streaming)
+					continue;
+				if (t->out_fmt.plane_fmt[0].sizeimage > imagsize) {
+					imagsize = t->out_fmt.plane_fmt[0].sizeimage;
+					*pixm = t->out_fmt;
+					stream->conn_id = t->id;
+				}
+			}
+		}
+		if (stream->conn_id == -1) {
+			v4l2_err(&dev->v4l2_dev, "no output stream for iqtool\n");
+			return -EINVAL;
+		}
+		imagsize = 0;
 	} else {
 		other_stream =
 			&stream->ispdev->cap_dev.stream[RKISP_STREAM_MP];
@@ -943,7 +967,7 @@ static int rkisp_set_fmt(struct rkisp_stream *stream,
 	if (!pixm->quantization)
 		pixm->quantization = V4L2_QUANTIZATION_FULL_RANGE;
 	/* can not change quantization when stream-on */
-	if (other_stream->streaming)
+	if ((other_stream != NULL) && other_stream->streaming)
 		pixm->quantization = other_stream->out_fmt.quantization;
 
 	/* calculate size */
@@ -1151,6 +1175,27 @@ static int rkisp_enum_framesizes(struct file *file, void *prov,
 	return 0;
 }
 
+static int rkisp_set_iqtool_connect_id(struct rkisp_stream *stream, int stream_id)
+{
+	struct rkisp_device *dev = stream->ispdev;
+
+	if (stream->id != RKISP_STREAM_VIR) {
+		v4l2_err(&dev->v4l2_dev, "only support for iqtool video\n");
+		goto err;
+	}
+
+	if (stream_id != RKISP_STREAM_MP &&
+	    stream_id != RKISP_STREAM_SP) {
+		v4l2_err(&dev->v4l2_dev, "invalid connect stream id\n");
+		goto err;
+	}
+
+	stream->conn_id = stream_id;
+	return 0;
+err:
+	return -EINVAL;
+}
+
 static long rkisp_ioctl_default(struct file *file, void *fh,
 				bool valid_prio, unsigned int cmd, void *arg)
 {
@@ -1187,6 +1232,9 @@ static long rkisp_ioctl_default(struct file *file, void *fh,
 		else
 			stream->memory =
 				SW_CSI_RWA_WR_SIMG_SWP | SW_CSI_RAW_WR_SIMG_MODE;
+		break;
+	case RKISP_CMD_SET_IQTOOL_CONN_ID:
+		ret = rkisp_set_iqtool_connect_id(stream, *(int *)arg);
 		break;
 	default:
 		ret = -EINVAL;

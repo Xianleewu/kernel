@@ -52,6 +52,7 @@
 #define SP_VDEV_NAME DRIVER_NAME   "_selfpath"
 #define MP_VDEV_NAME DRIVER_NAME   "_mainpath"
 #define DMA_VDEV_NAME DRIVER_NAME  "_dmapath"
+#define VIR_VDEV_NAME DRIVER_NAME  "_iqtool"
 #define RAW_VDEV_NAME DRIVER_NAME  "_rawpath"
 #define DMATX0_VDEV_NAME DRIVER_NAME "_rawwr0"
 #define DMATX1_VDEV_NAME DRIVER_NAME "_rawwr1"
