@@ -322,6 +322,14 @@
 		};
 	};
 
+	edac: edac {
+		compatible = "rockchip,rk3568-edac";
+		interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ce", "ue";
+		status = "disabled";
+	};
+
 	firmware {
 		optee: optee {
 			compatible = "linaro,optee-tz";
