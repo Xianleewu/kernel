@@ -1279,6 +1279,7 @@ static inline void rk3568_vop2_cfg_done(struct drm_crtc *crtc)
 	 * This is rather low probability for miss some done bit.
 	 */
 	val |= vop2_readl(vop2, RK3568_REG_CFG_DONE) & 0x7;
+	rockchip_drm_dbg(vop2->dev, VOP_DEBUG_CFG_DONE, "cfg_done: 0x%x\n\n", val);
 	vop2_writel(vop2, 0, val);
 
 	/**
@@ -1299,6 +1300,7 @@ static inline void rk3588_vop2_cfg_done(struct drm_crtc *crtc)
 	uint32_t val;
 
 	val = RK3568_VOP2_GLB_CFG_DONE_EN | BIT(vp->id) | (BIT(vp->id) << 16);
+	rockchip_drm_dbg(vop2->dev, VOP_DEBUG_CFG_DONE, "cfg_done: 0x%x\n\n", val);
 
 	vop2_writel(vop2, 0, val);
 }
@@ -2741,8 +2743,9 @@ static void vop2_wb_commit(struct drm_crtc *crtc)
 	if (conn_state->writeback_job && conn_state->writeback_job->fb) {
 		struct drm_framebuffer *fb = conn_state->writeback_job->fb;
 
-		DRM_DEV_DEBUG(vop2->dev, "Enable wb %ux%u  fmt: %u pitches: %d  addr: %pad\n",
-			      fb->width, fb->height, wb_state->format, fb->pitches[0], &wb_state->yrgb_addr);
+		rockchip_drm_dbg(vop2->dev, VOP_DEBUG_WB,
+				 "Enable wb %ux%u  fmt: %u pitches: %d  addr: %pad\n",
+				 fb->width, fb->height, wb_state->format, fb->pitches[0], &wb_state->yrgb_addr);
 
 		drm_writeback_queue_job(wb_conn, conn_state->writeback_job);
 		conn_state->writeback_job = NULL;
@@ -3483,7 +3486,8 @@ static void vop2_plane_atomic_disable(struct drm_plane *plane, struct drm_plane_
 	struct vop2_plane_state *vpstate = to_vop2_plane_state(plane->state);
 #endif
 
-	DRM_DEV_DEBUG(vop2->dev, "%s disable\n", win->name);
+	rockchip_drm_dbg(vop2->dev, VOP_DEBUG_PLANE, "%s disable %s\n",
+			 win->name, current->comm);
 
 	if (!old_state->crtc)
 		return;
@@ -3734,11 +3738,13 @@ static void vop2_plane_atomic_update(struct drm_plane *plane, struct drm_plane_s
 	afbc_half_block_en = vop2_afbc_half_block_enable(vpstate);
 
 	spin_lock(&vop2->reg_lock);
-	DRM_DEV_DEBUG(vop2->dev, "vp%d update %s[%dx%d->%dx%d@%dx%d] fmt[%.4s%s] addr[%pad] zpos[%d]\n",
-		      vp->id, win->name, actual_w, actual_h, dsp_w, dsp_h,
-		      dsp_stx, dsp_sty,
-		      drm_get_format_name(fb->format->format, &format_name),
-		      modifier_to_string(fb->modifier), &vpstate->yrgb_mst, vpstate->zpos);
+	rockchip_drm_dbg(vop2->dev, VOP_DEBUG_PLANE,
+			 "vp%d update %s[%dx%d->%dx%d@%dx%d] fmt[%.4s%s] addr[%pad] zpos[%d] by %s\n",
+			 vp->id, win->name, actual_w, actual_h, dsp_w, dsp_h,
+			 dsp_stx, dsp_sty,
+			 drm_get_format_name(fb->format->format, &format_name),
+			 modifier_to_string(fb->modifier), &vpstate->yrgb_mst,
+			 vpstate->zpos, current->comm);
 
 	if (vop2->version != VOP_VERSION_RK3568)
 		rk3588_vop2_win_cfg_axi(win);
@@ -6487,11 +6493,11 @@ static void vop2_crtc_atomic_begin(struct drm_crtc *crtc, struct drm_crtc_state 
 		vop2_zpos[nr_layers].zpos = vpstate->zpos;
 		vop2_zpos[nr_layers].plane = plane;
 		nr_layers++;
-		DRM_DEV_DEBUG(vop2->dev, "%s active zpos:%d for vp%d from vp%d\n",
+		rockchip_drm_dbg(vop2->dev, VOP_DEBUG_PLANE, "%s active zpos:%d for vp%d from vp%d\n",
 			     win->name, vpstate->zpos, vp->id, old_vp->id);
 	}
 
-	DRM_DEV_DEBUG(vop2->dev, "vp%d: %d windows, active layers %d\n",
+	rockchip_drm_dbg(vop2->dev, VOP_DEBUG_PLANE, "vp%d: %d windows, active layers %d\n",
 		      vp->id, hweight32(vp->win_mask), nr_layers);
 	if (nr_layers) {
 		vp->nr_layers = nr_layers;
@@ -7494,6 +7500,7 @@ static irqreturn_t vop2_isr(int irq, void *data)
 		}
 
 		if (active_irqs & FS_FIELD_INTR) {
+			rockchip_drm_dbg(vop2->dev, VOP_DEBUG_VSYNC, "vsync_vp%d\n", vp->id);
 			vop2_wb_handler(vp);
 			if (likely(!vp->skip_vsync) || (vp->layer_sel_update == false)) {
 				drm_crtc_handle_vblank(crtc);

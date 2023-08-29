@@ -146,6 +146,14 @@ struct post_csc {
 	u16 csc_enable;
 };
 
+enum rockchip_drm_debug_category {
+	VOP_DEBUG_PLANE		= BIT(0),
+	VOP_DEBUG_OVERLAY	= BIT(1),
+	VOP_DEBUG_WB		= BIT(2),
+	VOP_DEBUG_CFG_DONE	= BIT(3),
+	VOP_DEBUG_VSYNC		= BIT(7),
+};
+
 #define VOP_OUTPUT_IF_RGB	BIT(0)
 #define VOP_OUTPUT_IF_BT1120	BIT(1)
 #define VOP_OUTPUT_IF_BT656	BIT(2)
@@ -334,6 +342,10 @@ static inline int rockchip_drm_crtc_send_mcu_cmd(struct drm_device *drm_dev,
 	return 0;
 }
 #endif
+
+__printf(3, 4)
+void rockchip_drm_dbg(const struct device *dev, enum rockchip_drm_debug_category category,
+		      const char *format, ...);
 
 extern struct platform_driver cdn_dp_driver;
 extern struct platform_driver dw_hdmi_rockchip_pltfm_driver;
