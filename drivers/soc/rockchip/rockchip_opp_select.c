@@ -946,7 +946,11 @@ void rockchip_get_soc_info(struct device *dev,
 	}
 
 	if (of_property_match_string(np, "nvmem-cell-names",
-				     "specification_serial_number") >= 0) {
+				     "remark_spec_serial_number") >= 0)
+		rockchip_nvmem_cell_read_u8(np, "remark_spec_serial_number", &value);
+
+	if (!value && of_property_match_string(np, "nvmem-cell-names",
+					       "specification_serial_number") >= 0) {
 		ret = rockchip_nvmem_cell_read_u8(np,
 						  "specification_serial_number",
 						  &value);
@@ -957,13 +961,14 @@ void rockchip_get_soc_info(struct device *dev,
 			of_node_put(np);
 			return;
 		}
-		/* M */
-		if (value == 0xd)
-			*bin = 1;
-		/* J */
-		else if (value == 0xa)
-			*bin = 2;
 	}
+
+	/* M */
+	if (value == 0xd)
+		*bin = 1;
+	/* J */
+	else if (value == 0xa)
+		*bin = 2;
 
 	if (*bin < 0)
 		*bin = 0;
