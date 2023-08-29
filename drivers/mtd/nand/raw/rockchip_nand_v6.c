@@ -653,8 +653,7 @@ static int rk_nfc_block_bad(struct mtd_info *mtd, loff_t ofs)
 			goto out;
 		}
 		/* last page of the block */
-		page += ((mtd->erasesize - mtd->writesize) >> nand->chip_shift);
-		page--;
+		page += ((mtd->erasesize - mtd->writesize) >> nand->page_shift);
 		nand->cmdfunc(mtd, NAND_CMD_READOOB, nand->badblockpos, page);
 		bad = nand->read_byte(mtd);
 		if (bad != 0xFF) {
