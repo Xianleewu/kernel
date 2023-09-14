@@ -641,8 +641,8 @@ read_wa:
 		return 0;
 
 	ret = readx_poll_timeout(rk_iommu_is_reset_done, iommu, val,
-				 val, RK_MMU_FORCE_RESET_TIMEOUT_US,
-				 RK_MMU_POLL_TIMEOUT_US);
+				 val, RK_MMU_POLL_TIMEOUT_US,
+				 RK_MMU_FORCE_RESET_TIMEOUT_US);
 	if (ret) {
 		dev_err(iommu->dev, "FORCE_RESET command timed out\n");
 		return ret;
