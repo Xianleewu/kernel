@@ -1844,6 +1844,14 @@ static int rockchip_mipidphy_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void rockchip_mipidphy_shutdown(struct platform_device *pdev)
+{
+	struct media_entity *me = platform_get_drvdata(pdev);
+	struct v4l2_subdev *sd = media_entity_to_v4l2_subdev(me);
+
+	mipidphy_s_stream_stop(sd);
+}
+
 static const struct dev_pm_ops rockchip_mipidphy_pm_ops = {
 	SET_RUNTIME_PM_OPS(mipidphy_runtime_suspend,
 			   mipidphy_runtime_resume, NULL)
@@ -1852,6 +1860,7 @@ static const struct dev_pm_ops rockchip_mipidphy_pm_ops = {
 static struct platform_driver rockchip_isp_mipidphy_driver = {
 	.probe = rockchip_mipidphy_probe,
 	.remove = rockchip_mipidphy_remove,
+	.shutdown = rockchip_mipidphy_shutdown,
 	.driver = {
 			.name = "rockchip-mipi-dphy-rx",
 			.pm = &rockchip_mipidphy_pm_ops,
