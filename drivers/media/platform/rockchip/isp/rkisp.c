@@ -83,12 +83,6 @@
  * +---------------------------------------------------------+
  */
 
-struct backup_reg {
-	const u32 base;
-	const u32 shd;
-	u32 val;
-};
-
 static inline struct rkisp_device *sd_to_isp_dev(struct v4l2_subdev *sd)
 {
 	return container_of(sd->v4l2_dev, struct rkisp_device, v4l2_dev);
@@ -405,6 +399,11 @@ int rkisp_update_sensor_info(struct rkisp_device *dev)
 	v4l2_subdev_call(sensor->sd, video, g_frame_interval, &sensor->fi);
 	dev->active_sensor = sensor;
 
+	i = dev->dev_id;
+	if (sensor->fi.interval.numerator)
+		dev->hw_dev->isp_size[i].fps =
+			sensor->fi.interval.denominator / sensor->fi.interval.numerator;
+
 	return ret;
 }
 
@@ -581,7 +580,7 @@ void rkisp_trigger_read_back(struct rkisp_device *dev, u8 dma2frm, u32 mode, boo
 		dev->rdbk_cnt_x1++;
 	dev->rdbk_cnt++;
 
-	rkisp_params_cfgsram(params_vdev);
+	rkisp_params_cfgsram(params_vdev, true);
 	params_vdev->rdbk_times = dma2frm + 1;
 
 	/* disable isp force update to read 3dlut
@@ -656,10 +655,15 @@ static void rkisp_rdbk_trigger_handle(struct rkisp_device *dev, u32 cmd)
 		goto end;
 	if (hw->monitor.state & ISP_MIPI_ERROR && hw->monitor.is_en)
 		goto end;
+	if (dev->is_suspend) {
+		if (dev->suspend_sync)
+			complete(&dev->pm_cmpl);
+		goto end;
+	}
 
 	for (i = 0; i < hw->dev_num; i++) {
 		isp = hw->isp[i];
-		if (!(isp->isp_state & ISP_START))
+		if (!isp || (isp && (!(isp->isp_state & ISP_START) || isp->is_suspend)))
 			continue;
 		rkisp_rdbk_trigger_event(isp, T_CMD_LEN, &len[i]);
 		if (max < len[i]) {
@@ -832,86 +836,19 @@ static void rkisp_config_ism(struct rkisp_device *dev)
 	writel(val, base + CIF_ISP_CTRL);
 }
 
-static int rkisp_reset_handle_v2x(struct rkisp_device *dev)
+static int rkisp_reset_handle(struct rkisp_device *dev)
 {
-	void __iomem *base = dev->base_addr;
-	void *reg_buf = NULL;
-	u32 *reg, *reg1, i;
-	struct backup_reg backup[] = {
-		{
-			.base = MI_MP_WR_Y_BASE,
-			.shd = MI_MP_WR_Y_BASE_SHD,
-		}, {
-			.base = MI_MP_WR_CB_BASE,
-			.shd = MI_MP_WR_CB_BASE_SHD,
-		}, {
-			.base = MI_MP_WR_CR_BASE,
-			.shd = MI_MP_WR_CR_BASE_SHD,
-		}, {
-			.base = MI_SP_WR_Y_BASE,
-			.shd = MI_SP_WR_Y_BASE_SHD,
-		}, {
-			.base = MI_SP_WR_CB_BASE,
-			.shd = MI_SP_WR_CB_BASE_AD_SHD,
-		}, {
-			.base = MI_SP_WR_CR_BASE,
-			.shd = MI_SP_WR_CR_BASE_AD_SHD,
-		}, {
-			.base = MI_RAW0_WR_BASE,
-			.shd = MI_RAW0_WR_BASE_SHD,
-		}, {
-			.base = MI_RAW1_WR_BASE,
-			.shd = MI_RAW1_WR_BASE_SHD,
-		}, {
-			.base = MI_RAW2_WR_BASE,
-			.shd = MI_RAW2_WR_BASE_SHD,
-		}, {
-			.base = MI_RAW3_WR_BASE,
-			.shd = MI_RAW3_WR_BASE_SHD,
-		}, {
-			.base = MI_RAW0_RD_BASE,
-			.shd = MI_RAW0_RD_BASE_SHD,
-		}, {
-			.base = MI_RAW1_RD_BASE,
-			.shd = MI_RAW1_RD_BASE_SHD,
-		}, {
-			.base = MI_RAW2_RD_BASE,
-			.shd = MI_RAW2_RD_BASE_SHD,
-		}, {
-			.base = MI_GAIN_WR_BASE,
-			.shd = MI_GAIN_WR_BASE_SHD,
-		}
-	};
-
-	reg_buf = kzalloc(RKISP_ISP_SW_REG_SIZE, GFP_KERNEL);
-	if (!reg_buf)
-		return -ENOMEM;
+	u32 val;
 
 	dev_info(dev->dev, "%s enter\n", __func__);
+	rkisp_hw_reg_save(dev->hw_dev);
 
-	memcpy_fromio(reg_buf, base, RKISP_ISP_SW_REG_SIZE);
 	rkisp_soft_reset(dev->hw_dev, true);
 
-	/* process special reg */
-	reg = reg_buf + ISP_CTRL;
-	*reg &= ~(CIF_ISP_CTRL_ISP_ENABLE |
-		  CIF_ISP_CTRL_ISP_INFORM_ENABLE |
-		  CIF_ISP_CTRL_ISP_CFG_UPD);
-	reg = reg_buf + MI_WR_INIT;
-	*reg = 0;
-	reg = reg_buf + CSI2RX_CTRL0;
-	*reg &= ~SW_CSI2RX_EN;
-	/* skip mmu range */
-	memcpy_toio(base, reg_buf, ISP21_MI_BAY3D_RD_BASE_SHD);
-	memcpy_toio(base + CSI2RX_CTRL0, reg_buf + CSI2RX_CTRL0,
-		    RKISP_ISP_SW_REG_SIZE - CSI2RX_CTRL0);
-	/* config shd_reg to base_reg */
-	for (i = 0; i < ARRAY_SIZE(backup); i++) {
-		reg = reg_buf + backup[i].base;
-		reg1 = reg_buf + backup[i].shd;
-		backup[i].val = *reg;
-		writel(*reg1, base + backup[i].base);
-	}
+	rkisp_hw_reg_restore(dev->hw_dev);
+
+	val = CIF_ISP_DATA_LOSS | CIF_ISP_PIC_SIZE_ERROR;
+	rkisp_set_bits(dev, CIF_ISP_IMSC, 0, val, true);
 
 	/* clear state */
 	dev->isp_err_cnt = 0;
@@ -919,40 +856,12 @@ static int rkisp_reset_handle_v2x(struct rkisp_device *dev)
 	rkisp_set_state(&dev->isp_state, ISP_FRAME_END);
 	dev->hw_dev->monitor.state = ISP_FRAME_END;
 
-	/* update module */
-	reg = reg_buf + DUAL_CROP_CTRL;
-	if (*reg & 0xf)
-		writel(*reg | CIF_DUAL_CROP_CFG_UPD, base + DUAL_CROP_CTRL);
-	reg = reg_buf + SELF_RESIZE_CTRL;
-	if (*reg & 0xf)
-		writel(*reg | CIF_RSZ_CTRL_CFG_UPD, base + SELF_RESIZE_CTRL);
-	reg = reg_buf + MAIN_RESIZE_CTRL;
-	if (*reg & 0xf)
-		writel(*reg | CIF_RSZ_CTRL_CFG_UPD, base + MAIN_RESIZE_CTRL);
-
-	/* update mi and isp, base_reg will update to shd_reg */
-	force_cfg_update(dev);
-	reg = reg_buf + ISP_CTRL;
-	*reg |= CIF_ISP_CTRL_ISP_ENABLE |
-		CIF_ISP_CTRL_ISP_INFORM_ENABLE |
-		CIF_ISP_CTRL_ISP_CFG_UPD;
-	writel(*reg, base + ISP_CTRL);
-	udelay(50);
-	/* config base_reg */
-	for (i = 0; i < ARRAY_SIZE(backup); i++)
-		writel(backup[i].val, base + backup[i].base);
-	/* mpfbc base_reg = shd_reg, write is base but read is shd */
-	if (dev->isp_ver == ISP_V20)
-		writel(rkisp_read_reg_cache(dev, ISP_MPFBC_HEAD_PTR),
-		       base + ISP_MPFBC_HEAD_PTR);
-	rkisp_set_bits(dev, CIF_ISP_IMSC, 0, CIF_ISP_DATA_LOSS | CIF_ISP_PIC_SIZE_ERROR, true);
 	if (IS_HDR_RDBK(dev->hdr.op_mode)) {
 		if (!dev->hw_dev->is_idle)
 			rkisp_trigger_read_back(dev, 1, 0, true);
 		else
 			rkisp_rdbk_trigger_event(dev, T_CMD_QUEUE, NULL);
 	}
-	kfree(reg_buf);
 	dev_info(dev->dev, "%s exit\n", __func__);
 	return 0;
 }
@@ -965,11 +874,6 @@ static void rkisp_restart_monitor(struct work_struct *work)
 	struct rkisp_device *isp;
 	struct rkisp_pipeline *p;
 	int ret, i, j, timeout = 5, mipi_irq_cnt = 0;
-
-	if (!monitor->reset_handle) {
-		monitor->is_en = false;
-		return;
-	}
 
 	dev_info(hw->dev, "%s enter\n", __func__);
 	while (!(monitor->state & ISP_STOP) && monitor->is_en) {
@@ -1026,7 +930,7 @@ static void rkisp_restart_monitor(struct work_struct *work)
 
 		/* restart isp */
 		isp = hw->isp[hw->cur_dev_id];
-		ret = monitor->reset_handle(isp);
+		ret = rkisp_reset_handle(isp);
 		if (ret) {
 			monitor->is_en = false;
 			break;
@@ -1061,10 +965,6 @@ static void rkisp_monitor_init(struct rkisp_device *dev)
 	struct rkisp_monitor *monitor = &dev->hw_dev->monitor;
 
 	monitor->dev = dev->hw_dev;
-	monitor->reset_handle = NULL;
-	if (dev->isp_ver == ISP_V20 || dev->isp_ver == ISP_V21)
-		monitor->reset_handle = rkisp_reset_handle_v2x;
-
 	init_completion(&monitor->cmpl);
 	INIT_WORK(&monitor->work, rkisp_restart_monitor);
 }
@@ -1673,7 +1573,8 @@ static int rkisp_isp_start(struct rkisp_device *dev)
 		 "%s MI_CTRL 0x%08x ISP_CTRL 0x%08x\n", __func__,
 		 readl(base + CIF_MI_CTRL), readl(base + CIF_ISP_CTRL));
 
-	if (dev->hw_dev->monitor.is_en && atomic_read(&dev->hw_dev->refcnt) < 2) {
+	if (dev->hw_dev->monitor.is_en &&
+	    atomic_read(&dev->hw_dev->refcnt) < 2) {
 		dev->hw_dev->monitor.retry = 0;
 		dev->hw_dev->monitor.state = ISP_FRAME_END;
 		schedule_work(&dev->hw_dev->monitor.work);
@@ -2764,6 +2665,7 @@ int rkisp_register_isp_subdev(struct rkisp_device *isp_dev,
 	isp_dev->isp_state = ISP_STOP;
 
 	rkisp_monitor_init(isp_dev);
+	init_completion(&isp_dev->pm_cmpl);
 	return 0;
 err_cleanup_media_entity:
 	media_entity_cleanup(&sd->entity);

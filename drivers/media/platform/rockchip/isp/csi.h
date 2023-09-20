@@ -80,4 +80,7 @@ void rkisp_unregister_csi_subdev(struct rkisp_device *dev);
 
 int rkisp_csi_config_patch(struct rkisp_device *dev);
 void rkisp_csi_sof(struct rkisp_device *dev, u8 id);
+void rkisp_get_remote_mipi_sensor(struct rkisp_device *dev,
+				  struct v4l2_subdev **sensor_sd, u32 function);
+
 #endif

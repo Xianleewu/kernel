@@ -14,7 +14,7 @@
 #include "dev.h"
 #include "regs.h"
 
-static void get_remote_mipi_sensor(struct rkisp_device *dev,
+void rkisp_get_remote_mipi_sensor(struct rkisp_device *dev,
 				  struct v4l2_subdev **sensor_sd, u32 function)
 {
 	struct media_graph graph;
@@ -208,7 +208,7 @@ static int csi_config(struct rkisp_csi_device *csi)
 	emd_vc = 0xFF;
 	emd_dt = 0;
 	dev->hdr.sensor = NULL;
-	get_remote_mipi_sensor(dev, &mipi_sensor, MEDIA_ENT_F_CAM_SENSOR);
+	rkisp_get_remote_mipi_sensor(dev, &mipi_sensor, MEDIA_ENT_F_CAM_SENSOR);
 	if (mipi_sensor) {
 		ctrl = v4l2_ctrl_find(mipi_sensor->ctrl_handler,
 				      CIFISP_CID_EMB_VC);
@@ -437,7 +437,8 @@ int rkisp_csi_config_patch(struct rkisp_device *dev)
 		if (dev->isp_inp & INP_CIF) {
 			struct rkmodule_hdr_cfg hdr_cfg;
 
-			get_remote_mipi_sensor(dev, &mipi_sensor, MEDIA_ENT_F_PROC_VIDEO_COMPOSER);
+			rkisp_get_remote_mipi_sensor(dev, &mipi_sensor,
+						     MEDIA_ENT_F_PROC_VIDEO_COMPOSER);
 			dev->hdr.op_mode = HDR_NORMAL;
 			dev->hdr.esp_mode = HDR_NORMAL_VC;
 			if (mipi_sensor) {

@@ -230,6 +230,7 @@ struct rkisp_device {
 	bool send_fbcgain;
 	struct rkisp_ispp_buf *cur_fbcgain;
 	struct rkisp_buffer *cur_spbuf;
+	struct completion pm_cmpl;
 	bool is_thunderboot;
 
 	struct kfifo rdbk_kfifo;
@@ -241,5 +242,12 @@ struct rkisp_device {
 	u32 rd_mode;
 	u8 filt_state[RDBK_F_MAX];
 	bool is_probe_end;
+	bool is_suspend;
+	bool suspend_sync;
 };
+
+static inline bool rkisp_link_sensor(u32 isp_inp)
+{
+	return isp_inp & (INP_CSI | INP_DVP | INP_LVDS);
+}
 #endif
