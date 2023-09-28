@@ -2711,6 +2711,15 @@ static int imx335_remove(struct i2c_client *client)
 	return 0;
 }
 
+static void imx335_shutdown(struct i2c_client *client)
+{
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct imx335 *imx335 = to_imx335(sd);
+
+	dev_info(&client->dev, "shutdown device\n");
+	__imx335_stop_stream(imx335);
+}
+
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id imx335_of_match[] = {
 	{ .compatible = "sony,imx335" },
@@ -2733,6 +2742,7 @@ static struct i2c_driver imx335_i2c_driver = {
 	.probe		= &imx335_probe,
 	.remove		= &imx335_remove,
 	.id_table	= imx335_match_id,
+	.shutdown	= &imx335_shutdown,
 };
 
 static int __init sensor_mod_init(void)
