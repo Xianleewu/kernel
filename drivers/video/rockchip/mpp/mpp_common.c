@@ -791,6 +791,12 @@ get_task:
 		goto get_task;
 	}
 
+	if (atomic_read(&mpp->srv->shutdown_request) > 0) {
+		dev_err(mpp->dev, "shutdown request drop task\n");
+		mpp_taskqueue_pop_pending(queue, task);
+		goto get_task;
+	}
+
 	/* get device for current task */
 	mpp = task->session->mpp;
 
@@ -1984,8 +1990,8 @@ irqreturn_t mpp_dev_irq(int irq, void *param)
 			 * isr should not to response, and handle it in delayed work
 			 */
 			if (test_and_set_bit(TASK_STATE_HANDLE, &task->state)) {
-				mpp_err("error, task has been handled, irq_status %08x\n",
-					mpp->irq_status);
+				dev_err(mpp->dev, "error, task has been handled, status %#lx irq_status %08x\n",
+					task->state, mpp->irq_status);
 				irq_ret = IRQ_HANDLED;
 				goto done;
 			}
