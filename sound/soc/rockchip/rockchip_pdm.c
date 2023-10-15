@@ -42,6 +42,8 @@
 #define CLK_PPM_MIN			(-1000)
 #define CLK_PPM_MAX			(1000)
 
+#define QUIRK_ALWAYS_ON			BIT(0)
+
 enum rk_pdm_version {
 	RK_PDM_RK3308,
 	RK_PDM_RK3328,
@@ -63,6 +65,7 @@ struct rk_pdm_dev {
 	enum rk_pdm_version version;
 	unsigned int clk_root_rate;
 	unsigned int clk_root_initial_rate;
+	unsigned int quirks;
 	int clk_ppm;
 	bool clk_calibrate;
 };
@@ -102,6 +105,16 @@ static struct rk_pdm_ds_ratio ds_ratio[] = {
 	{ 4, 12000 },
 	{ 4, 11025 },
 	{ 4, 8000 },
+};
+
+static const struct pdm_of_quirks {
+	char *quirk;
+	int id;
+} of_quirks[] = {
+	{
+		.quirk = "rockchip,always-on",
+		.id = QUIRK_ALWAYS_ON,
+	},
 };
 
 static unsigned int get_pdm_clk(struct rk_pdm_dev *pdm, unsigned int sr,
@@ -970,6 +983,29 @@ static int rockchip_pdm_path_parse(struct rk_pdm_dev *pdm, struct device_node *n
 	return 0;
 }
 
+static int rockchip_pdm_keep_clk_always_on(struct rk_pdm_dev *pdm)
+{
+	pm_runtime_forbid(pdm->dev);
+
+	dev_info(pdm->dev, "CLK-ALWAYS-ON: samplerate: %d\n", PDM_DEFAULT_RATE);
+
+	return 0;
+}
+
+static int rockchip_pdm_parse_quirks(struct rk_pdm_dev *pdm)
+{
+	int ret = 0, i = 0;
+
+	for (i = 0; i < ARRAY_SIZE(of_quirks); i++)
+		if (device_property_read_bool(pdm->dev, of_quirks[i].quirk))
+			pdm->quirks |= of_quirks[i].id;
+
+	if (pdm->quirks & QUIRK_ALWAYS_ON)
+		ret = rockchip_pdm_keep_clk_always_on(pdm);
+
+	return ret;
+}
+
 static int rockchip_pdm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -1050,6 +1086,10 @@ static int rockchip_pdm_probe(struct platform_device *pdev)
 
 	ret = rockchip_pdm_path_parse(pdm, node);
 	if (ret != 0 && ret != -ENOENT)
+		goto err_clk;
+
+	ret = rockchip_pdm_parse_quirks(pdm);
+	if (ret)
 		goto err_clk;
 
 	/*
