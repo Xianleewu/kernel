@@ -511,8 +511,8 @@ static int rockchip_pdm_start_delay_info(struct snd_kcontrol *kcontrol,
 static int rockchip_pdm_start_delay_get(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dai *dai = snd_kcontrol_chip(kcontrol);
-	struct rk_pdm_dev *pdm = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct rk_pdm_dev *pdm = snd_soc_component_get_drvdata(component);
 
 	ucontrol->value.integer.value[0] = pdm->start_delay_ms;
 
@@ -522,8 +522,8 @@ static int rockchip_pdm_start_delay_get(struct snd_kcontrol *kcontrol,
 static int rockchip_pdm_start_delay_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dai *dai = snd_kcontrol_chip(kcontrol);
-	struct rk_pdm_dev *pdm = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct rk_pdm_dev *pdm = snd_soc_component_get_drvdata(component);
 
 	if ((ucontrol->value.integer.value[0] < PDM_START_DELAY_MS_MIN) ||
 	    (ucontrol->value.integer.value[0] > PDM_START_DELAY_MS_MAX))
@@ -549,8 +549,8 @@ static int rockchip_pdm_filter_delay_info(struct snd_kcontrol *kcontrol,
 static int rockchip_pdm_filter_delay_get(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dai *dai = snd_kcontrol_chip(kcontrol);
-	struct rk_pdm_dev *pdm = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct rk_pdm_dev *pdm = snd_soc_component_get_drvdata(component);
 
 	ucontrol->value.integer.value[0] = pdm->filter_delay_ms;
 
@@ -560,8 +560,8 @@ static int rockchip_pdm_filter_delay_get(struct snd_kcontrol *kcontrol,
 static int rockchip_pdm_filter_delay_put(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dai *dai = snd_kcontrol_chip(kcontrol);
-	struct rk_pdm_dev *pdm = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct rk_pdm_dev *pdm = snd_soc_component_get_drvdata(component);
 
 	if ((ucontrol->value.integer.value[0] < PDM_FILTER_DELAY_MS_MIN) ||
 	    (ucontrol->value.integer.value[0] > PDM_FILTER_DELAY_MS_MAX))
@@ -619,8 +619,8 @@ static int rockchip_pdm_clk_compensation_get(struct snd_kcontrol *kcontrol,
 					     struct snd_ctl_elem_value *ucontrol)
 
 {
-	struct snd_soc_dai *dai = snd_kcontrol_chip(kcontrol);
-	struct rk_pdm_dev *pdm = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct rk_pdm_dev *pdm = snd_soc_component_get_drvdata(component);
 
 	ucontrol->value.integer.value[0] = pdm->clk_ppm;
 
@@ -630,8 +630,8 @@ static int rockchip_pdm_clk_compensation_get(struct snd_kcontrol *kcontrol,
 static int rockchip_pdm_clk_compensation_put(struct snd_kcontrol *kcontrol,
 					     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dai *dai = snd_kcontrol_chip(kcontrol);
-	struct rk_pdm_dev *pdm = snd_soc_dai_get_drvdata(dai);
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct rk_pdm_dev *pdm = snd_soc_component_get_drvdata(component);
 
 	int ppm = ucontrol->value.integer.value[0];
 
