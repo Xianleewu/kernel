@@ -2,7 +2,7 @@
 /*
  * techpoint v4l2 driver
  *
- * Copyright (C) 2022 Rockchip Electronics Co., Ltd.
+ * Copyright (C) 2023 Rockchip Electronics Co., Ltd.
  *
  */
 
@@ -864,6 +864,7 @@ static const struct of_device_id techpoint_of_match[] = {
 	{ .compatible = "techpoint,tp2815" },
 	{ .compatible = "techpoint,tp9930" },
 	{ .compatible = "techpoint,tp9950" },
+	{ .compatible = "techpoint,tp9951" },
 	{ },
 };
 
@@ -1299,7 +1300,6 @@ static int techpoint_audio_probe(struct techpoint *techpoint)
 	}
 
 	if (techpoint->chip_id == CHIP_TP9930) {
-
 		techpoint_write_reg(techpoint->client, 0x40, 0x00);
 		for (i = 0; i < 0xff; i++)
 			techpoint_write_reg(techpoint->client, i, 0xbb);

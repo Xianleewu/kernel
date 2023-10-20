@@ -466,19 +466,15 @@ int tp2855_get_channel_reso(struct i2c_client *client, int ch)
 	case TP2855_CVSTD_1080P_30:
 		dev_err(&client->dev, "detect channel %d 1080P_30\n", ch);
 		return TECHPOINT_S_RESO_1080P_30;
-		break;
 	case TP2855_CVSTD_1080P_25:
 		dev_err(&client->dev, "detect channel %d 1080P_25\n", ch);
 		return TECHPOINT_S_RESO_1080P_25;
-		break;
 	case TP2855_CVSTD_720P_30:
 		dev_err(&client->dev, "detect channel %d 720P_30\n", ch);
 		return TECHPOINT_S_RESO_720P_30;
-		break;
 	case TP2855_CVSTD_720P_25:
 		dev_err(&client->dev, "detect channel %d 720P_25\n", ch);
 		return TECHPOINT_S_RESO_720P_25;
-		break;
 	case TP2855_CVSTD_SD:
 		dev_err(&client->dev, "detect channel %d SD\n", ch);
 		return TECHPOINT_S_RESO_SD;
@@ -486,7 +482,6 @@ int tp2855_get_channel_reso(struct i2c_client *client, int ch)
 		dev_err(&client->dev,
 			"detect channel %d UNSUPPORT, default 1080P_25\n", ch);
 		return TECHPOINT_S_RESO_1080P_25;
-		break;
 	}
 
 	return reso;

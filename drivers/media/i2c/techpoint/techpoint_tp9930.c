@@ -564,19 +564,15 @@ int tp9930_get_channel_reso(struct i2c_client *client, int ch)
 	case TP9930_CVSTD_1080P_30:
 		dev_err(&client->dev, "detect channel %d 1080P_30", ch);
 		return TECHPOINT_S_RESO_1080P_30;
-		break;
 	case TP9930_CVSTD_1080P_25:
 		dev_err(&client->dev, "detect channel %d 1080P_25", ch);
 		return TECHPOINT_S_RESO_1080P_25;
-		break;
 	case TP9930_CVSTD_720P_30:
 		dev_err(&client->dev, "detect channel %d 720P_30", ch);
 		return TECHPOINT_S_RESO_720P_30;
-		break;
 	case TP9930_CVSTD_720P_25:
 		dev_err(&client->dev, "detect channel %d 720P_25", ch);
 		return TECHPOINT_S_RESO_720P_25;
-		break;
 	case TP9930_CVSTD_720P_60:
 	case TP9930_CVSTD_720P_50:
 	default:
@@ -589,7 +585,6 @@ int tp9930_get_channel_reso(struct i2c_client *client, int ch)
 			"detect channel %d UNSUPPORT, default 720P_25", ch);
 		return TECHPOINT_S_RESO_720P_25;
 #endif
-		break;
 	}
 
 	return reso;
