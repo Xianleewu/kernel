@@ -59,7 +59,7 @@
 
 #define SC530AI_XVCLK_FREQ		27000000
 
-#define SC530AI_CHIP_ID			0x9e39
+#define SC530AI_CHIP_ID			0x8e39
 #define SC530AI_REG_CHIP_ID		0x3107
 
 #define SC530AI_REG_CTRL_MODE		0x0100
@@ -1831,7 +1831,7 @@ static int sc530ai_check_sensor_id(struct sc530ai *sc530ai,
 		return -ENODEV;
 	}
 
-	dev_info(dev, "Detected SC%06x sensor\n", SC530AI_CHIP_ID);
+	dev_info(dev, "Detected %s (%06x) sensor\n", client->name, SC530AI_CHIP_ID);
 
 	return 0;
 }
