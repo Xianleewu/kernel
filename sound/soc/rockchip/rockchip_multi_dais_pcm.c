@@ -620,7 +620,7 @@ static int dmaengine_mpcm_set_runtime_hwparams(struct snd_pcm_substream *substre
 	int ret;
 
 	chan = to_chan(pcm, substream);
-	if (!chan)
+	if (!chan || !dma_dev)
 		return -EINVAL;
 
 	memset(&hw, 0, sizeof(hw));
@@ -728,6 +728,7 @@ static int dmaengine_mpcm_new(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_rtdcom_lookup(rtd, SND_DMAENGINE_MPCM_DRV_NAME);
 	struct dmaengine_mpcm *pcm = soc_component_to_mpcm(component);
 	struct snd_pcm_substream *substream;
+	struct device *dma_dev;
 	size_t prealloc_buffer_size;
 	size_t max_buffer_size;
 	unsigned int i;
@@ -741,9 +742,15 @@ static int dmaengine_mpcm_new(struct snd_soc_pcm_runtime *rtd)
 		if (!substream)
 			continue;
 
+		dma_dev = dmaengine_dma_dev(pcm, substream);
+		if (!dma_dev) {
+			dev_err(component->dev, "No chan found, should assign 'rockchip,no-dmaengine' in DT\n");
+			return -EINVAL;
+		}
+
 		ret = snd_pcm_lib_preallocate_pages(substream,
 						    SNDRV_DMA_TYPE_DEV_IRAM,
-						    dmaengine_dma_dev(pcm, substream),
+						    dma_dev,
 						    prealloc_buffer_size,
 						    max_buffer_size);
 		if (ret)
