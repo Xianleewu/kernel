@@ -3504,6 +3504,9 @@ isp_3dlut_config(struct rkisp_isp_params_vdev *params_vdev,
 	u32 value, buf_idx, i;
 	u32 *data;
 
+	if (rkisp_ioread32(params_vdev, ISP_LDCH_BASE) & BIT(0))
+		return;
+
 	priv_val = (struct rkisp_isp_params_val_v2x *)params_vdev->priv_val;
 	buf_idx = (priv_val->buf_3dlut_idx++) % RKISP_PARAM_3DLUT_BUF_NUM;
 
@@ -3543,6 +3546,9 @@ isp_3dlut_enable(struct rkisp_isp_params_vdev *params_vdev,
 		return;
 
 	if (en) {
+		if (rkisp_ioread32(params_vdev, ISP_LDCH_BASE) & BIT(0))
+			return;
+
 		isp_param_set_bits(params_vdev, ISP_3DLUT_CTRL, 0x01);
 		isp_param_set_bits(params_vdev, ISP_3DLUT_UPDATE, 0x01);
 	} else {
@@ -3895,9 +3901,6 @@ void __isp_isr_other_en(struct rkisp_isp_params_vdev *params_vdev,
 		priv_val->dhaz_en = !!(module_ens & ISP2X_MODULE_DHAZ);
 	}
 
-	if (module_en_update & ISP2X_MODULE_3DLUT)
-		ops->isp3dlut_enable(params_vdev, !!(module_ens & ISP2X_MODULE_3DLUT));
-
 	if (module_en_update & ISP2X_MODULE_LDCH) {
 		/*
 		 * lsc read table from sram in mult-isp mode,
@@ -3905,12 +3908,17 @@ void __isp_isr_other_en(struct rkisp_isp_params_vdev *params_vdev,
 		 */
 		if (params_vdev->first_cfg_params &&
 		    !!(module_ens & ISP2X_MODULE_LDCH) &&
-		    params_vdev->dev->hw_dev->is_single)
+		    params_vdev->dev->hw_dev->is_single) {
 			priv_val->delay_en_ldch = true;
-		else
-			ops->ldch_enable(params_vdev,
-					!!(module_ens & ISP2X_MODULE_LDCH));
+		} else {
+			if (!priv_val->delay_en_ldch)
+				ops->ldch_enable(params_vdev,
+						 !!(module_ens & ISP2X_MODULE_LDCH));
+		}
 	}
+
+	if (module_en_update & ISP2X_MODULE_3DLUT)
+		ops->isp3dlut_enable(params_vdev, !!(module_ens & ISP2X_MODULE_3DLUT));
 
 	if (module_en_update & ISP2X_MODULE_GAIN)
 		ops->gain_enable(params_vdev, !!(module_ens & ISP2X_MODULE_GAIN));
@@ -4343,17 +4351,27 @@ rkisp_params_isr_v2x(struct rkisp_isp_params_vdev *params_vdev,
 {
 	struct rkisp_device *dev = params_vdev->dev;
 	u32 cur_frame_id;
+	struct rkisp_isp_params_val_v2x *priv_val =
+		(struct rkisp_isp_params_val_v2x *)params_vdev->priv_val;
 
 	rkisp_dmarx_get_frame(dev, &cur_frame_id, NULL, NULL, true);
 	if (isp_mis & CIF_ISP_V_START) {
+		/*
+		 * the value of `ISP_3DLUT_UPDATE` was cleared automatically,
+		 * but the 3dlut will still update lut probabilistically.
+		 * software must write 0 to `ISP_3DLUT_UPDATE`,
+		 * so that 3dlut won't read the lut.
+		 */
+		if (priv_val->delay_en_ldch ||
+		    rkisp_ioread32(params_vdev, ISP_LDCH_BASE) & BIT(0))
+			rkisp_write(dev, ISP_3DLUT_UPDATE, 0, true);
+
 		if (params_vdev->rdbk_times)
 			params_vdev->rdbk_times--;
 		if (!params_vdev->cur_buf)
 			return;
 
 		if (IS_HDR_RDBK(dev->rd_mode) && !params_vdev->rdbk_times) {
-			struct rkisp_isp_params_val_v2x *priv_val =
-				(struct rkisp_isp_params_val_v2x *)params_vdev->priv_val;
 
 			if (priv_val->delay_en_ldch) {
 				struct rkisp_isp_params_v2x_ops *ops =
