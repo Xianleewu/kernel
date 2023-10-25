@@ -3,6 +3,14 @@
  * Copyright (c) 2021 Rockchip Electronics Co., Ltd.
  */
 
+#include <dt-bindings/soc/rockchip-amp.h>
+
+#define CPU_GET_AFFINITY(cpu, cluster) ((cpu) << 8)
+#define RSVD0_IRQn 283
+#define RSVD_IRQn(_N)               (RSVD0_IRQn + (_N))
+#define AMP_CPUOFF_REQ_IRQ(cpu)     RSVD_IRQn(11 + (cpu)) /* gic irq: 294 */
+#define GIC_TOUCH_REQ_IRQ(cpu)      (AMP_CPUOFF_REQ_IRQ(4) + cpu) /* gic irq: 298 */
+
 / {
 	rockchip_amp: rockchip-amp {
 		compatible = "rockchip,rk3568-amp";
@@ -13,6 +21,10 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&uart4m1_xfer>;
 		status = "okay";
+
+		amp-irqs = /bits/ 64 <
+			GIC_AMP_IRQ_CFG_ROUTE(AMP_CPUOFF_REQ_IRQ(3), 0xd0, CPU_GET_AFFINITY(3, 0))
+			GIC_AMP_IRQ_CFG_ROUTE(GIC_TOUCH_REQ_IRQ(3), 0xd0, CPU_GET_AFFINITY(3, 0))>;
 
 		amp_cpus: amp-cpus {
 			amp-cpu3 {
