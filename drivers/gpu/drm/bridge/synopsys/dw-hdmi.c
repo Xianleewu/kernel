@@ -1978,6 +1978,39 @@ static void hdmi_tx_hdcp_config(struct dw_hdmi *hdmi,
 		hdmi->hdcp->hdcp_start(hdmi->hdcp);
 }
 
+/*
+ * Sending vsi packet when playing hdr video on some TVS will
+ * cause green screen.
+ */
+static bool is_vsi_disable(const struct drm_connector *connector)
+{
+	u8 *edid;
+	int i, val;
+	u8 vsi_dis_id[] = {0x61, 0xA4, 0x4A, 0x00, 0x01, 0x00, 0x00, 0x00, 0x2E, 0x1D};
+
+	if (!connector->edid_blob_ptr || !connector->edid_blob_ptr->data)
+		return false;
+
+	edid = (u8 *)connector->edid_blob_ptr->data;
+
+	for (i = 0; i < 10; i++) {
+		val = edid[i + 8];
+		if (val != vsi_dis_id[i])
+			return false;
+	}
+
+	return true;
+}
+
+static bool is_hdmi2_sink(const struct drm_connector *connector)
+{
+	if (!connector)
+		return true;
+
+	return connector->display_info.hdmi.scdc.supported ||
+		connector->display_info.color_formats & DRM_COLOR_FORMAT_YCRCB420;
+}
+
 static void hdmi_config_AVI(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 {
 	struct hdmi_avi_infoframe frame;
@@ -1986,9 +2019,7 @@ static void hdmi_config_AVI(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 	enum hdmi_quantization_range rgb_quant_range =
 		hdmi->hdmi_data.quant_range;
 
-	if (hdmi_bus_fmt_is_yuv420(hdmi->hdmi_data.enc_out_bus_format) ||
-	    hdmi->connector.display_info.hdmi.scdc.supported)
-		is_hdmi2 = true;
+	is_hdmi2 = is_hdmi2_sink(&hdmi->connector);
 	/* Initialise info frame from DRM mode */
 	drm_hdmi_avi_infoframe_from_display_mode(&frame, mode, is_hdmi2);
 
@@ -2093,8 +2124,7 @@ static void hdmi_config_AVI(struct dw_hdmi *hdmi, struct drm_display_mode *mode)
 	hdmi_writeb(hdmi, val, HDMI_FC_AVICONF2);
 
 	/* AVI data byte 4 differences: none */
-	if (hdmi_bus_fmt_is_yuv420(hdmi->hdmi_data.enc_out_bus_format) ||
-	    hdmi->connector.display_info.hdmi.scdc.supported)
+	if (is_hdmi2 && is_vsi_disable(&hdmi->connector))
 		val = hdmi->vic;
 	else
 		val = frame.video_code & 0x7f;
@@ -2135,14 +2165,6 @@ static void hdmi_config_vendor_specific_infoframe(struct dw_hdmi *hdmi,
 	u8 buffer[10];
 	ssize_t err;
 
-	/* if sink support hdmi2.0, don't send vsi */
-	if (hdmi_bus_fmt_is_yuv420(hdmi->hdmi_data.enc_out_bus_format) ||
-	    hdmi->connector.display_info.hdmi.scdc.supported) {
-		hdmi_mask_writeb(hdmi, 0, HDMI_FC_DATAUTO0, HDMI_FC_DATAUTO0_VSD_OFFSET,
-				 HDMI_FC_DATAUTO0_VSD_MASK);
-		return;
-	}
-
 	err = drm_hdmi_vendor_infoframe_from_display_mode(&frame,
 							  &hdmi->connector,
 							  mode);
@@ -2154,6 +2176,13 @@ static void hdmi_config_vendor_specific_infoframe(struct dw_hdmi *hdmi,
 		 * mode requires vendor infoframe. So just simply return.
 		 */
 		return;
+
+	/* if sink support hdmi2.0, don't send vsi */
+	if ((is_hdmi2_sink(&hdmi->connector) && is_vsi_disable(&hdmi->connector)) || !frame.vic) {
+		hdmi_mask_writeb(hdmi, 0, HDMI_FC_DATAUTO0, HDMI_FC_DATAUTO0_VSD_OFFSET,
+				 HDMI_FC_DATAUTO0_VSD_MASK);
+		return;
+	}
 
 	err = hdmi_vendor_infoframe_pack(&frame, buffer, sizeof(buffer));
 	if (err < 0) {
