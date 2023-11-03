@@ -75,7 +75,8 @@
  */
 #define RGA2_PHY_PAGE_SIZE	(((8192 * 8192 * 4) / 4096) + 1)
 
-ktime_t rga2_start;
+ktime_t rga2_hw_start;
+ktime_t rga2_job_start;
 int rga2_flag;
 int first_RGA2_proc;
 static int rk3368;
@@ -768,10 +769,14 @@ static void rga2_copy_reg(struct rga2_reg *reg, uint32_t offset)
 static struct rga2_reg * rga2_reg_init(rga2_session *session, struct rga2_req *req)
 {
     int32_t ret;
+	struct rga2_reg *reg;
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+	ktime_t start = ktime_set(0, 0);
+	ktime_t end = ktime_set(0, 0);
+#endif
 
 	/* Alloc 4k size for rga2_reg use. */
-	struct rga2_reg *reg = (struct rga2_reg *)get_zeroed_page(GFP_KERNEL | GFP_DMA32);
-
+	reg = (struct rga2_reg *)get_zeroed_page(GFP_KERNEL | GFP_DMA32);
 	if (NULL == reg) {
 		pr_err("get_zeroed_page fail in rga_reg_init\n");
 		return NULL;
@@ -780,6 +785,11 @@ static struct rga2_reg * rga2_reg_init(rga2_session *session, struct rga2_req *r
     reg->session = session;
 	INIT_LIST_HEAD(&reg->session_link);
 	INIT_LIST_HEAD(&reg->status_link);
+
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+	if (RGA2_TEST_TIME)
+		start = ktime_get();
+#endif
 
     ret = rga2_get_dma_info(reg, req);
     if (ret < 0) {
@@ -801,6 +811,16 @@ static struct rga2_reg * rga2_reg_init(rga2_session *session, struct rga2_req *r
         }
     }
 
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+	if (RGA2_TEST_TIME) {
+		end = ktime_get();
+		end = ktime_sub(end, start);
+		DBG("map buffer cost time %d us\n", (int)ktime_to_us(end));
+
+		start = ktime_get();
+	}
+#endif
+
     if (RGA2_gen_reg_info((uint8_t *)reg->cmd_reg, (uint8_t *)reg->csc_reg, req) == -1) {
         printk("gen reg info error\n");
         free_page((unsigned long)reg);
@@ -812,6 +832,14 @@ static struct rga2_reg * rga2_reg_init(rga2_session *session, struct rga2_req *r
 	list_add_tail(&reg->status_link, &rga2_service.waiting);
 	list_add_tail(&reg->session_link, &session->waiting);
 	mutex_unlock(&rga2_service.lock);
+
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+	if (RGA2_TEST_TIME) {
+		end = ktime_get();
+		end = ktime_sub(end, start);
+		DBG("generate register cost time %d us\n", (int)ktime_to_us(end));
+	}
+#endif
 
     return reg;
 }
@@ -914,7 +942,7 @@ static void rga2_try_set_reg(void)
 
 #ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
 			if (RGA2_TEST_TIME)
-				rga2_start = ktime_get();
+				rga2_hw_start = ktime_get();
 #endif
 
 			/* Start proc */
@@ -950,6 +978,10 @@ static void rga2_del_running_list(void)
 {
 	struct rga2_mmu_buf_t *tbuf = &rga2_mmu_buf;
 	struct rga2_reg *reg;
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+	ktime_t start = ktime_set(0, 0);
+	ktime_t end = ktime_set(0, 0);
+#endif
 
 	while (!list_empty(&rga2_service.running)) {
 		reg = list_entry(rga2_service.running.next, struct rga2_reg,
@@ -960,7 +992,20 @@ static void rga2_del_running_list(void)
 			else
 				tbuf->back += reg->MMU_len;
 		}
+
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+		if (RGA2_TEST_TIME)
+			start = ktime_get();
+#endif
 		rga2_put_dma_info(reg);
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+		if (RGA2_TEST_TIME) {
+			end = ktime_get();
+			end = ktime_sub(end, start);
+			DBG("unmap buffer cost time %d us\n", (int)ktime_to_us(end));
+		}
+#endif
+
 		atomic_sub(1, &reg->session->task_running);
 		atomic_sub(1, &rga2_service.total_running);
 
@@ -978,6 +1023,10 @@ static void rga2_del_running_list_timeout(void)
 {
 	struct rga2_mmu_buf_t *tbuf = &rga2_mmu_buf;
 	struct rga2_reg *reg;
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+	ktime_t start = ktime_set(0, 0);
+	ktime_t end = ktime_set(0, 0);
+#endif
 
 	while (!list_empty(&rga2_service.running)) {
 		reg = list_entry(rga2_service.running.next, struct rga2_reg,
@@ -991,7 +1040,20 @@ static void rga2_del_running_list_timeout(void)
 			else
 				tbuf->back += reg->MMU_len;
 		}
+
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+		if (RGA2_TEST_TIME)
+			start = ktime_get();
+#endif
 		rga2_put_dma_info(reg);
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+		if (RGA2_TEST_TIME) {
+			end = ktime_get();
+			end = ktime_sub(end, start);
+			DBG("unmap buffer cost time %d us\n", (int)ktime_to_us(end));
+		}
+#endif
+
 		atomic_sub(1, &reg->session->task_running);
 		atomic_sub(1, &rga2_service.total_running);
 		rga2_soft_reset();
@@ -1178,11 +1240,11 @@ retry:
 
 #ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
 	if (RGA2_TEST_TIME) {
-		ktime_t rga2_cmd_end;
+		ktime_t rga2_job_end;
 
-		rga2_cmd_end = ktime_get();
-		rga2_cmd_end = ktime_sub(rga2_cmd_end, rga2_start);
-		DBG("sync one cmd end time %d us\n", (int)ktime_to_us(rga2_cmd_end));
+		rga2_job_end = ktime_get();
+		rga2_job_end = ktime_sub(rga2_job_end, rga2_job_start);
+		DBG("job done total cost time %d us\n", (int)ktime_to_us(rga2_job_end));
 	}
 #endif
 	if (ret == -ETIMEDOUT && try--) {
@@ -1251,6 +1313,11 @@ static long rga_ioctl(struct file *file, uint32_t cmd, unsigned long arg)
 	switch (cmd)
 	{
 		case RGA_BLIT_SYNC:
+#ifdef CONFIG_ROCKCHIP_RGA2_DEBUGGER
+			if (RGA2_TEST_TIME)
+				rga2_job_start = ktime_get();
+#endif
+
 			if (unlikely(copy_from_user(&req_rga, (struct rga_req*)arg, sizeof(struct rga_req))))
 			{
 				ERR("copy_from_user failed\n");
@@ -1663,8 +1730,8 @@ static irqreturn_t rga2_irq_thread(int irq, void *dev_id)
 		ktime_t rga2_hw_end;
 
 		rga2_hw_end = ktime_get();
-		rga2_hw_end = ktime_sub(rga2_hw_end, rga2_start);
-		DBG("RGA hardware cost time %d us\n", (int)ktime_to_us(rga2_hw_end));
+		rga2_hw_end = ktime_sub(rga2_hw_end, rga2_hw_start);
+		DBG("hardware cost time %d us\n", (int)ktime_to_us(rga2_hw_end));
 	}
 #endif
 	RGA2_flush_page();
