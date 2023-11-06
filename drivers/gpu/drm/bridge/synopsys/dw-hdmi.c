@@ -2512,6 +2512,14 @@ static void hdmi_av_composer(struct dw_hdmi *hdmi,
 	hdmi_writeb(hdmi, vsync_len, HDMI_FC_VSYNCINWIDTH);
 }
 
+static void dw_hdmi_set_avmute(struct dw_hdmi *hdmi, bool enable)
+{
+	if (enable)
+		hdmi_writeb(hdmi, HDMI_FC_GCP_SET_AVMUTE, HDMI_FC_GCP);
+	else
+		hdmi_writeb(hdmi, HDMI_FC_GCP_CLEAR_AVMUTE, HDMI_FC_GCP);
+}
+
 /* HDMI Initialization Step B.4 */
 static void dw_hdmi_enable_video_path(struct dw_hdmi *hdmi)
 {
@@ -3298,7 +3306,7 @@ static int dw_hdmi_connector_atomic_check(struct drm_connector *connector,
 		    !hdmi->logo_plug_out && !hdmi->disabled &&
 		    !hdr_metadata_equal(hdmi, old_state, new_state)) {
 			hdmi->update = true;
-			hdmi_writeb(hdmi, HDMI_FC_GCP_SET_AVMUTE, HDMI_FC_GCP);
+			dw_hdmi_set_avmute(hdmi, true);
 			mdelay(180);
 			handle_plugged_change(hdmi, false);
 		} else {
@@ -3321,7 +3329,7 @@ static void dw_hdmi_connector_atomic_commit(struct drm_connector *connector,
 		dw_hdmi_setup(hdmi, &hdmi->previous_mode);
 		mdelay(50);
 		handle_plugged_change(hdmi, true);
-		hdmi_writeb(hdmi, HDMI_FC_GCP_CLEAR_AVMUTE, HDMI_FC_GCP);
+		dw_hdmi_set_avmute(hdmi, false);
 		hdmi->update = false;
 	}
 }
@@ -3331,9 +3339,9 @@ void dw_hdmi_set_quant_range(struct dw_hdmi *hdmi)
 	if (!hdmi->bridge_is_on)
 		return;
 
-	hdmi_writeb(hdmi, HDMI_FC_GCP_SET_AVMUTE, HDMI_FC_GCP);
+	dw_hdmi_set_avmute(hdmi, true);
 	dw_hdmi_setup(hdmi, &hdmi->previous_mode);
-	hdmi_writeb(hdmi, HDMI_FC_GCP_CLEAR_AVMUTE, HDMI_FC_GCP);
+	dw_hdmi_set_avmute(hdmi, false);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_set_quant_range);
 
@@ -3347,9 +3355,9 @@ void dw_hdmi_set_output_type(struct dw_hdmi *hdmi, u64 val)
 	if (!hdmi->bridge_is_on)
 		return;
 
-	hdmi_writeb(hdmi, HDMI_FC_GCP_SET_AVMUTE, HDMI_FC_GCP);
+	dw_hdmi_set_avmute(hdmi, true);
 	dw_hdmi_setup(hdmi, &hdmi->previous_mode);
-	hdmi_writeb(hdmi, HDMI_FC_GCP_CLEAR_AVMUTE, HDMI_FC_GCP);
+	dw_hdmi_set_avmute(hdmi, false);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_set_output_type);
 
@@ -3575,6 +3583,7 @@ static void dw_hdmi_bridge_disable(struct drm_bridge *bridge)
 	mutex_lock(&hdmi->mutex);
 	hdmi->disabled = true;
 	handle_plugged_change(hdmi, false);
+	dw_hdmi_set_avmute(hdmi, true);
 	dw_hdmi_update_power(hdmi);
 	dw_hdmi_update_phy_mask(hdmi);
 	if (hdmi->plat_data->dclk_set)
@@ -3596,6 +3605,7 @@ static void dw_hdmi_bridge_enable(struct drm_bridge *bridge)
 	if (hdmi->plat_data->dclk_set)
 		hdmi->plat_data->dclk_set(hdmi->plat_data->phy_data, true, 0);
 	dw_hdmi_update_power(hdmi);
+	dw_hdmi_set_avmute(hdmi, false);
 	dw_hdmi_update_phy_mask(hdmi);
 	handle_plugged_change(hdmi, true);
 	mutex_unlock(&hdmi->mutex);
