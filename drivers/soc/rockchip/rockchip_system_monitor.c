@@ -4,7 +4,6 @@
  * Author: Finley Xiao <finley.xiao@rock-chips.com>
  */
 
-#include <dt-bindings/soc/rockchip-system-status.h>
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
 #include <linux/device.h>

@@ -18,7 +18,6 @@
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-dma-sg.h>
 #include <soc/rockchip/rockchip-system-status.h>
-#include <dt-bindings/soc/rockchip-system-status.h>
 
 #include "dev.h"
 #include "mipi-csi2.h"
