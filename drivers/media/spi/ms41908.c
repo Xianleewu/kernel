@@ -70,8 +70,8 @@
 
 enum {
 	MOTOR_STATUS_STOPPED = 0,
-	MOTOR_STATUS_CCW = 1,
-	MOTOR_STATUS_CW = 2,
+	MOTOR_STATUS_CW = 1,
+	MOTOR_STATUS_CCW = 2,
 };
 
 enum ext_dev_type {
@@ -303,23 +303,23 @@ static int set_motor_running_status(struct motor_dev *motor,
 
 	if (ext_dev->is_dir_opp) {
 		if (pos > ext_dev->last_pos) {
-			if (ext_dev->last_dir == MOTOR_STATUS_CCW)
-				mv_cnt += ext_dev->backlash;
-			status = MOTOR_STATUS_CW;
-		} else {
 			if (ext_dev->last_dir == MOTOR_STATUS_CW)
 				mv_cnt += ext_dev->backlash;
 			status = MOTOR_STATUS_CCW;
+		} else {
+			if (ext_dev->last_dir == MOTOR_STATUS_CCW)
+				mv_cnt += ext_dev->backlash;
+			status = MOTOR_STATUS_CW;
 		}
 	} else {
 		if (pos > ext_dev->last_pos) {
-			if (ext_dev->last_dir == MOTOR_STATUS_CW)
-				mv_cnt += ext_dev->backlash;
-			status = MOTOR_STATUS_CCW;
-		} else {
 			if (ext_dev->last_dir == MOTOR_STATUS_CCW)
 				mv_cnt += ext_dev->backlash;
 			status = MOTOR_STATUS_CW;
+		} else {
+			if (ext_dev->last_dir == MOTOR_STATUS_CW)
+				mv_cnt += ext_dev->backlash;
+			status = MOTOR_STATUS_CCW;
 		}
 	}
 
@@ -2671,10 +2671,10 @@ static void dev_param_init(struct motor_dev *motor)
 			mv_cnt = motor->focus->reback;
 			if (motor->focus->is_dir_opp) {
 				mv_cnt += motor->focus->backlash;
-				status = MOTOR_STATUS_CW;
+				status = MOTOR_STATUS_CCW;
 			} else {
 				mv_cnt += motor->focus->backlash;
-				status = MOTOR_STATUS_CCW;
+				status = MOTOR_STATUS_CW;
 			}
 			motor->focus->reback_status = status;
 			if (motor->focus->is_half_step_mode)
@@ -2715,10 +2715,10 @@ static void dev_param_init(struct motor_dev *motor)
 			mv_cnt = motor->zoom->reback;
 			if (motor->zoom->is_dir_opp) {
 				mv_cnt += motor->zoom->backlash;
-				status = MOTOR_STATUS_CW;
+				status = MOTOR_STATUS_CCW;
 			} else {
 				mv_cnt += motor->zoom->backlash;
-				status = MOTOR_STATUS_CCW;
+				status = MOTOR_STATUS_CW;
 			}
 			motor->zoom->reback_status = status;
 			if (motor->zoom->is_half_step_mode)
