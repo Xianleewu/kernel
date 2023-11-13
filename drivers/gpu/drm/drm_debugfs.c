@@ -330,7 +330,6 @@ int drm_debugfs_vop_add(struct drm_crtc *crtc, struct dentry *root)
 
 	return 0;
 }
-#endif
 
 static int drm_debugfs_vop_color_bar_show(struct seq_file *s, void *data)
 {
@@ -395,6 +394,7 @@ int drm_debugfs_vop_color_bar_add(struct drm_crtc *crtc, struct dentry *root)
 
 	return 0;
 }
+#endif
 
 /**
  * drm_debugfs_create_files - Initialize a given set of debugfs files for DRM
