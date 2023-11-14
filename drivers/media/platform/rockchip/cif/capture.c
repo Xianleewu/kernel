@@ -6088,6 +6088,158 @@ void rkcif_set_default_fmt(struct rkcif_device *cif_dev)
 	}
 }
 
+static int rkcif_subdevs_set_power(struct rkcif_device *cif_dev, int on)
+{
+	int ret = 0;
+
+	if (cif_dev->terminal_sensor.sd)
+		ret = v4l2_subdev_call(cif_dev->terminal_sensor.sd,
+				       core, s_power, on);
+
+	return ret;
+}
+
+static int rkcif_subdevs_set_stream(struct rkcif_device *cif_dev, int on)
+{
+	struct rkcif_pipeline *p = &cif_dev->pipe;
+
+	int i = 0;
+	int ret = 0;
+
+	for (i = 0; i < p->num_subdevs; i++) {
+		ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
+		if (ret)
+			v4l2_dbg(1, rkcif_debug, &cif_dev->v4l2_dev,
+				 "%s:stream %s subdev:%s failed\n",
+				 __func__, on ? "on" : "off", p->subdevs[i]->name);
+	}
+
+	return ret;
+}
+
+int rkcif_stream_suspend(struct rkcif_device *cif_dev)
+{
+	struct rkcif_stream *stream = NULL;
+	struct rkcif_resume_info *resume_info = &cif_dev->reset_work.resume_info;
+	int i = 0;
+	int sof_cnt = 0;
+	int on = 0;
+	int suspend_cnt = 0;
+
+	mutex_lock(&cif_dev->stream_lock);
+
+	for (i = 0; i < RKCIF_MAX_STREAM_MIPI; i++) {
+		stream = &cif_dev->stream[i];
+
+		if (stream->state == RKCIF_STATE_STREAMING) {
+			suspend_cnt++;
+			v4l2_dbg(1, rkcif_debug, &cif_dev->v4l2_dev,
+				 "stream[%d] stopping\n", stream->id);
+
+			rkcif_stream_stop(stream);
+
+			if (stream->id == RKCIF_STREAM_MIPI_ID0) {
+				sof_cnt = rkcif_get_sof(cif_dev);
+				v4l2_dbg(1, rkcif_debug, &cif_dev->v4l2_dev,
+					 "%s: stream[%d] sync frmid & csi_sof, frm_id:%d, csi_sof:%d\n",
+					 __func__,
+					 stream->id,
+					 stream->frame_idx,
+					 sof_cnt);
+
+				resume_info->frm_sync_seq = stream->frame_idx;
+			}
+
+			stream->state = RKCIF_STATE_RESET_IN_STREAMING;
+			stream->is_fs_fe_not_paired = false;
+			stream->fs_cnt_in_single_frame = 0;
+
+			v4l2_dbg(1, rkcif_debug, &cif_dev->v4l2_dev,
+				 "%s stop stream[%d] in streaming, frm_id:%d, csi_sof:%d\n",
+				 __func__, stream->id, stream->frame_idx, rkcif_get_sof(cif_dev));
+		}
+	}
+
+	rkcif_subdevs_set_power(cif_dev, on);
+
+	if (suspend_cnt == 0)
+		goto out_suspend;
+
+	rkcif_subdevs_set_stream(cif_dev, on);
+
+	rockchip_clear_system_status(SYS_STATUS_CIF0);
+
+out_suspend:
+	mutex_unlock(&cif_dev->stream_lock);
+	return 0;
+}
+
+int rkcif_stream_resume(struct rkcif_device *cif_dev)
+{
+	struct rkcif_stream *stream = NULL;
+	int i = 0;
+	int ret = 0;
+	int on = 0;
+	int resume_cnt = 0;
+
+	mutex_lock(&cif_dev->stream_lock);
+
+	for (i = 0; i < RKCIF_MAX_STREAM_MIPI; i++) {
+		stream = &cif_dev->stream[i];
+		if (stream->state != RKCIF_STATE_RESET_IN_STREAMING)
+			continue;
+
+		resume_cnt++;
+		stream->fs_cnt_in_single_frame = 0;
+
+		if (stream->cif_fmt_in->field == V4L2_FIELD_INTERLACED) {
+			if (stream->curr_buf == stream->next_buf) {
+				if (stream->curr_buf)
+					list_add_tail(&stream->curr_buf->queue, &stream->buf_head);
+			} else {
+				if (stream->curr_buf)
+					list_add_tail(&stream->curr_buf->queue, &stream->buf_head);
+				if (stream->next_buf)
+					list_add_tail(&stream->next_buf->queue, &stream->buf_head);
+			}
+			stream->curr_buf = NULL;
+			stream->next_buf = NULL;
+		}
+		if (cif_dev->active_sensor->mbus.type == V4L2_MBUS_CSI2 ||
+		    cif_dev->active_sensor->mbus.type == V4L2_MBUS_CCP2)
+			ret = rkcif_csi_stream_start(stream);
+		else
+			ret = rkcif_stream_start(stream);
+		if (ret) {
+			v4l2_err(&cif_dev->v4l2_dev, "%s:resume stream[%d] failed\n",
+				 __func__, stream->id);
+			goto out_resume;
+		}
+
+		stream->streamon_timestamp = ktime_get_ns();
+		v4l2_dbg(1, rkcif_debug, &cif_dev->v4l2_dev,
+			 "resume stream[%d], frm_idx:%d, csi_sof:%d\n",
+			 stream->id, stream->frame_idx,
+			 rkcif_get_sof(cif_dev));
+	}
+
+	on = 1;
+	rkcif_subdevs_set_power(cif_dev, on);
+
+	if (resume_cnt == 0)
+		goto out_resume;
+
+	rkcif_subdevs_set_stream(cif_dev, on);
+	rkcif_start_luma(&cif_dev->luma_vdev,
+			 cif_dev->stream[RKCIF_STREAM_MIPI_ID0].cif_fmt_in);
+
+	rockchip_set_system_status(SYS_STATUS_CIF0);
+
+out_resume:
+	mutex_unlock(&cif_dev->stream_lock);
+	return 0;
+}
+
 #define CSI_START_INTSTAT(id)		(0x3 << ((id) * 2))
 void rkcif_irq_pingpong(struct rkcif_device *cif_dev)
 {

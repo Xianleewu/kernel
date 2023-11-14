@@ -570,5 +570,7 @@ void rkcif_config_dvp_clk_sampling_edge(struct rkcif_device *dev,
 void rkcif_enable_dvp_clk_dual_edge(struct rkcif_device *dev, bool on);
 void rkcif_reset_work(struct work_struct *work);
 void rkcif_monitor_reset_event(struct rkcif_hw *hw);
+int rkcif_stream_suspend(struct rkcif_device *cif_dev);
+int rkcif_stream_resume(struct rkcif_device *cif_dev);
 
 #endif
