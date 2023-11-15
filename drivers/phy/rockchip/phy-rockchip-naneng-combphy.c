@@ -600,6 +600,7 @@ static const struct rockchip_combphy_cfg rk3528_combphy_cfgs = {
 	.clks		= rk3528_clks,
 	.grfcfg		= &rk3528_combphy_grfcfgs,
 	.combphy_cfg	= rk3528_combphy_cfg,
+	.force_det_out	= true,
 };
 
 static int rk3568_combphy_cfg(struct rockchip_combphy_priv *priv)
