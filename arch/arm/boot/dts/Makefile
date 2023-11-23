@@ -867,6 +867,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += \
 	rv1126-evb-ddr3-v12-spi-nand.dtb \
 	rv1126-evb-ddr3-v12-spi-nor.dtb \
 	rv1126-evb-ddr3-v12-tb-emmc.dtb \
+	rv1126-evb-ddr3-v12-tb-nofastae-spi-nor.dtb \
 	rv1126-evb-ddr3-v12-tb-spi-nor.dtb \
 	rv1126-evb-ddr3-v13.dtb \
 	rv1126-evb-ddr3-v13-dualcam-tb-emmc.dtb \
