@@ -1406,7 +1406,7 @@ static int dw_hdmi_rockchip_dclk_set(void *data, bool enable, int vp_id)
 	return ret;
 }
 
-struct drm_display_mode *dw_hdmi_rockchip_get_force_timing(void *data)
+static struct drm_display_mode *dw_hdmi_rockchip_get_force_timing(void *data)
 {
 	struct rockchip_hdmi *hdmi = (struct rockchip_hdmi *)data;
 
