@@ -1119,9 +1119,6 @@ dw_hdmi_rockchip_select_output(struct drm_connector_state *conn_state,
 	else
 		tmdsclock = pixclock * (color_depth) / 8;
 
-	if (hdmi->timing_force_output)
-		parse_bus_format(hdmi->force_bus_format, color_format, &color_depth);
-
 	if (*color_format == DRM_HDMI_OUTPUT_YCBCR420)
 		tmdsclock /= 2;
 
@@ -1143,6 +1140,9 @@ dw_hdmi_rockchip_select_output(struct drm_connector_state *conn_state,
 				*color_format = DRM_HDMI_OUTPUT_YCBCR420;
 		}
 	}
+
+	if (hdmi->timing_force_output)
+		parse_bus_format(hdmi->force_bus_format, color_format, &color_depth);
 
 	if (*color_format == DRM_HDMI_OUTPUT_YCBCR420) {
 		*output_mode = ROCKCHIP_OUT_MODE_YUV420;
