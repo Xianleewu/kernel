@@ -1767,6 +1767,59 @@ static bool is_support_hotplug(uint32_t output_type)
 	}
 }
 
+static int rockchip_drm_sysfs_init(struct drm_device *drm_dev)
+{
+	struct rockchip_drm_private *priv = drm_dev->dev_private;
+	struct device *dev;
+	struct drm_crtc *crtc = NULL;
+	int pipe, ret;
+
+	drm_for_each_crtc(crtc, drm_dev) {
+		dev = kzalloc(sizeof(struct device), GFP_KERNEL);
+		if (!dev)
+			return -ENOMEM;
+
+		ret = dev_set_name(dev, crtc->name);
+		if (ret)
+			goto cleanup;
+
+		dev->parent = drm_dev->primary->kdev;
+		ret = device_register(dev);
+		if (ret) {
+			put_device(dev);
+			goto cleanup;
+		}
+
+		dev_set_drvdata(dev, crtc);
+		pipe = drm_crtc_index(crtc);
+		priv->sysfs_devs[pipe] = dev;
+
+		if (priv->crtc_funcs[pipe] &&
+		    priv->crtc_funcs[pipe]->sysfs_init)
+			priv->crtc_funcs[pipe]->sysfs_init(dev, crtc);
+	}
+
+	return 0;
+
+cleanup:
+	kfree(dev);
+	return ret;
+}
+
+static void rockchip_drm_sysfs_fini(struct drm_device *drm_dev)
+{
+	struct rockchip_drm_private *priv = drm_dev->dev_private;
+	int i;
+
+	for (i = 0; i < ROCKCHIP_MAX_CRTC; i++) {
+		if (priv->sysfs_devs[i]) {
+			device_unregister(priv->sysfs_devs[i]);
+			kfree(priv->sysfs_devs[i]);
+			priv->sysfs_devs[i] = NULL;
+		}
+	}
+}
+
 static int rockchip_drm_bind(struct device *dev)
 {
 	struct drm_device *drm_dev;
@@ -1899,6 +1952,8 @@ static int rockchip_drm_bind(struct device *dev)
 	if (ret)
 		goto err_fbdev_fini;
 
+	rockchip_drm_sysfs_init(drm_dev);
+
 	return 0;
 err_fbdev_fini:
 	rockchip_drm_fbdev_fini(drm_dev);
@@ -1924,6 +1979,7 @@ static void rockchip_drm_unbind(struct device *dev)
 
 	drm_dev_unregister(drm_dev);
 
+	rockchip_drm_sysfs_fini(drm_dev);
 	rockchip_drm_fbdev_fini(drm_dev);
 	rockchip_gem_pool_destroy(drm_dev);
 	drm_kms_helper_poll_fini(drm_dev);

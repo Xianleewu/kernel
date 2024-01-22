@@ -59,6 +59,7 @@ struct rockchip_crtc_funcs {
 			    unsigned int *plane_num_total);
 	void (*cancel_pending_vblank)(struct drm_crtc *crtc,
 				      struct drm_file *file_priv);
+	int (*sysfs_init)(struct device *dev, struct drm_crtc *crtc);
 	int (*debugfs_init)(struct drm_minor *minor, struct drm_crtc *crtc);
 	int (*debugfs_dump)(struct drm_crtc *crtc, struct seq_file *s);
 	void (*regs_dump)(struct drm_crtc *crtc, struct seq_file *s);
@@ -302,6 +303,8 @@ struct rockchip_drm_private {
 	dma_addr_t cubic_lut_dma_addr;
 	void *cubic_lut_kvaddr;
 	struct loader_cubic_lut cubic_lut[ROCKCHIP_MAX_CRTC];
+
+	struct device *sysfs_devs[ROCKCHIP_MAX_CRTC];
 };
 
 #ifndef MODULE
