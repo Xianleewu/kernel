@@ -246,6 +246,8 @@ struct vop {
 	struct drm_flip_work fb_unref_work;
 	unsigned long pending;
 
+	ktime_t last_update_time;
+
 	struct completion line_flag_completion;
 
 	const struct vop_data *data;
@@ -1895,6 +1897,8 @@ static void vop_plane_atomic_update(struct drm_plane *plane,
 		return;
 	}
 
+	vop->last_update_time = ktime_get();
+
 	mode = &crtc->state->adjusted_mode;
 	actual_w = drm_rect_width(src) >> 16;
 	actual_h = drm_rect_height(src) >> 16;
@@ -2604,6 +2608,60 @@ static int vop_gamma_show(struct seq_file *s, void *data)
 	return 0;
 }
 
+static ssize_t last_update_time_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct drm_crtc *crtc = dev_get_drvdata(dev);
+	struct vop *vop = to_vop(crtc);
+
+	return sprintf(buf, "%lld\n", ktime_to_ms(vop->last_update_time));
+}
+
+static ssize_t since_last_update_time_show(struct device *dev, struct device_attribute *attr,
+					   char *buf)
+{
+	struct drm_crtc *crtc = dev_get_drvdata(dev);
+	struct vop *vop = to_vop(crtc);
+
+	return sprintf(buf, "%lld\n", ktime_to_ms(ktime_get() - vop->last_update_time));
+}
+
+static DEVICE_ATTR_RO(last_update_time);
+static DEVICE_ATTR_RO(since_last_update_time);
+
+static struct attribute *update_time_attrs[] = {
+	&dev_attr_last_update_time.attr,
+	&dev_attr_since_last_update_time.attr,
+	NULL
+};
+
+static const struct attribute_group update_time_group = {
+	.name = NULL,
+	.attrs = update_time_attrs,
+};
+
+static int vop_update_time_sysfs_init(struct device *dev, struct drm_crtc *crtc)
+{
+	struct vop *vop = to_vop(crtc);
+	int ret;
+
+	ret = device_add_group(dev, &update_time_group);
+	if (ret) {
+		DRM_DEV_ERROR(vop->dev, "failed to create update_time for %s\n", crtc->name);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int vop_crtc_sysfs_init(struct device *dev, struct drm_crtc *crtc)
+{
+	int ret;
+
+	ret = vop_update_time_sysfs_init(dev, crtc);
+
+	return ret;
+}
+
 #undef DEBUG_PRINT
 
 static struct drm_info_list vop_debugfs_files[] = {
@@ -2911,6 +2969,7 @@ static void vop_crtc_send_mcu_cmd(struct drm_crtc *crtc,  u32 type, u32 value)
 static const struct rockchip_crtc_funcs private_crtc_funcs = {
 	.loader_protect = vop_crtc_loader_protect,
 	.cancel_pending_vblank = vop_crtc_cancel_pending_vblank,
+	.sysfs_init = vop_crtc_sysfs_init,
 	.debugfs_init = vop_crtc_debugfs_init,
 	.debugfs_dump = vop_crtc_debugfs_dump,
 	.regs_dump = vop_crtc_regs_dump,
