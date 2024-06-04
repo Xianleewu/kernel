@@ -27,9 +27,13 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		atf: atf@40000 {
+		atf@0 {
 			reg = <0x0 0x00000 0x0 0x200000>;
 			no-map;
+		};
+
+		atf@200000 {
+			reg = <0x0 0x200000 0x0 0x8000>;
 		};
 
 		ramdisk_r: ramdisk_r@4000000 {
