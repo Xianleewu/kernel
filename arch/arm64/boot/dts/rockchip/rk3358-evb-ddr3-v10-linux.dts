@@ -12,45 +12,4 @@
 / {
 	model = "Rockchip linux RK3358 EVB DDR3 board";
 	compatible = "rockchip,rk3358-evb-ddr3-v10-linux", "rockchip,px30", "rockchip,rk3358";
-
-	/*
-	This memory mapping range represents a 512MB memory space
-	starting from the physical address 0x00000000
-	where:
-	0x00000000 - base address
-	0x0 - address cells
-	0x0 - size cells
-	0x20000000 - memory size (512MB)
-	Note: The actual available memory size depends on the hardware design
-	and may differ from the 512MB defined here.
-	Adjustment is needed based on the specific hardware memory configuration.
-	*/
-	memory: memory {
-		device_type = "memory";
-		reg = <0x00000000 0x0 0x0 0x20000000>;
-	};
-
-	ramdisk: ramdisk {
-		compatible = "rockchip,ramdisk";
-		memory-region = <&ramdisk_r>;
-	};
-
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-		atf@0 {
-			reg = <0x0 0x00000 0x0 0x200000>;
-			no-map;
-		};
-
-		mmc_dma_buf@200000 {
-			reg = <0x0 0x200000 0x0 0x200000>;
-		};
-
-		ramdisk_r: ramdisk_r@4000000 {
-			reg = <0x0 0x4000000 0x0 0x2000000>;
-			//no-map;
-		};
-	};
 };
